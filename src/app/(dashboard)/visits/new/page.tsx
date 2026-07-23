@@ -8,8 +8,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { visitFormSchema } from "@/lib/validators";
 import { createVisit } from "@/server/actions/visits";
-import { searchCustomers } from "@/server/queries/customers";
-import { getActiveServices, getActiveDrugs } from "@/server/queries";
+import { fetchSearchCustomers } from "@/server/actions/queries";
+import { fetchActiveServices, fetchActiveDrugs } from "@/server/actions/queries";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,7 +95,7 @@ export default function NewVisitPage() {
 
   useEffect(() => {
     async function loadMasterData() {
-      const [s, d] = await Promise.all([getActiveServices(), getActiveDrugs()]);
+      const [s, d] = await Promise.all([fetchActiveServices(), fetchActiveDrugs()]);
       setServices(s as unknown as ServiceOption[]);
       setDrugs(d as unknown as DrugOption[]);
     }
@@ -109,7 +109,7 @@ export default function NewVisitPage() {
     }
     setSearchingCustomer(true);
     try {
-      const results = await searchCustomers(query);
+      const results = await fetchSearchCustomers(query);
       setCustomerResults(results as CustomerOption[]);
     } finally {
       setSearchingCustomer(false);

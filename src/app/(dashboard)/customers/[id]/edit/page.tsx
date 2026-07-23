@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { customerSchema } from "@/lib/validators";
 import { updateCustomer } from "@/server/actions/customers";
-import { getCustomerById } from "@/server/queries/customers";
+import { fetchCustomerById } from "@/server/actions/queries";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,7 +55,7 @@ export default function EditCustomerPage() {
   useEffect(() => {
     async function fetchCustomer() {
       try {
-        const data = await getCustomerById(id);
+        const data = await fetchCustomerById(id);
         if (data) {
           setCustomer(data as CustomerData);
         }

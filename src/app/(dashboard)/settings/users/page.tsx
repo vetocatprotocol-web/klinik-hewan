@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getUsers, getRoles } from "@/server/queries";
+import { fetchUsers, fetchRoles } from "@/server/actions/queries";
 import {
   createUser,
   updateUser,
@@ -77,8 +77,8 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const [usersResult, rolesResult] = await Promise.all([
-        getUsers({ page, search, role: role || undefined }),
-        getRoles(),
+        fetchUsers({ page, search, role: role || undefined }),
+        fetchRoles(),
       ]);
       setData(usersResult.data as UserRow[]);
       setTotalPages(usersResult.totalPages);

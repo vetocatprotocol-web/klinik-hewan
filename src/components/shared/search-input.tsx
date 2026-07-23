@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface SearchInputProps {
   placeholder?: string;
@@ -46,6 +47,4 @@ export function SearchInput({
   );
 }
 
-function cn(...classes: (string | undefined | false)[]) {
-  return classes.filter(Boolean).join(" ");
-}
+

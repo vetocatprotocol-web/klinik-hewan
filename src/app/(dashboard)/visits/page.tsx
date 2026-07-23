@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { getVisits } from "@/server/queries/visits";
+import { fetchVisits } from "@/server/actions/queries";
 import { SearchInput } from "@/components/shared/search-input";
 import { DataTable, type ColumnDef } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -44,7 +44,7 @@ export default function VisitsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getVisits({
+      const result = await fetchVisits({
         page,
         search,
         status: status || undefined,

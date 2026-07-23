@@ -68,7 +68,7 @@ export function VisitsChart({ data, className }: VisitsChartProps) {
           />
           <Bar
             dataKey="value"
-            fill="hsl(var(--primary))"
+            fill="#3b82f6"
             radius={[4, 4, 0, 0]}
           />
         </BarChart>

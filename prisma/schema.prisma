@@ -234,7 +234,7 @@ model Visit {
   creator    User       @relation("VisitCreator", fields: [createdBy], references: [id])
   visitItems VisitItem[]
   prescription Prescription?
-  @@unique([id])
+
   @@index([customerId])
   @@index([petId])
   @@index([visitDate])

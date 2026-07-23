@@ -7,9 +7,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { visitFormSchema } from "@/lib/validators";
-import { getVisitById } from "@/server/queries/visits";
-import { searchCustomers } from "@/server/queries/customers";
-import { getActiveServices, getActiveDrugs } from "@/server/queries";
+import { fetchVisitById } from "@/server/actions/queries";
+import { fetchSearchCustomers } from "@/server/actions/queries";
+import { fetchActiveServices, fetchActiveDrugs } from "@/server/actions/queries";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,9 +115,9 @@ export default function EditVisitPage() {
     async function fetchData() {
       try {
         const [visitData, servicesData, drugsData] = await Promise.all([
-          getVisitById(id),
-          getActiveServices(),
-          getActiveDrugs(),
+          fetchVisitById(id),
+          fetchActiveServices(),
+          fetchActiveDrugs(),
         ]);
 
         if (visitData && visitData.status === "DRAFT") {
@@ -164,7 +164,7 @@ export default function EditVisitPage() {
       setCustomerResults([]);
       return;
     }
-    const results = await searchCustomers(query);
+    const results = await fetchSearchCustomers(query);
     setCustomerResults(results as CustomerOption[]);
   }, []);
 

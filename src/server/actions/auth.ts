@@ -50,10 +50,11 @@ export async function login(
       };
     }
 
+    const staffRoles = ["OWNER", "DOKTER", "KASIR", "ADMIN"];
     await signIn("credentials", {
       email,
       password,
-      redirectTo: user.role.name === "OWNER" ? "/dashboard" : "/dashboard",
+      redirectTo: staffRoles.includes(user.role.name) ? "/dashboard" : "/portal/dashboard",
     });
 
     return { success: true, data: undefined };

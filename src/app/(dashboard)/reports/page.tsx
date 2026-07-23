@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getInvoices, getProducts } from "@/server/queries";
-import { getVisits } from "@/server/queries/visits";
+import { fetchInvoices, fetchProducts } from "@/server/actions/queries";
+import { fetchVisits } from "@/server/actions/queries";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,7 +88,7 @@ export default function ReportsPage() {
   const fetchDailyReport = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getVisits({ dateFrom: dailyDate, dateTo: dailyDate });
+      const result = await fetchVisits({ dateFrom: dailyDate, dateTo: dailyDate });
       const visits = result.data as unknown as VisitRow[];
       setDailyVisits(visits);
 
@@ -119,7 +119,7 @@ export default function ReportsPage() {
   const fetchRevenueReport = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getInvoices({
+      const result = await fetchInvoices({
         dateFrom: revenueDateFrom || undefined,
         dateTo: revenueDateTo || undefined,
       });
@@ -146,7 +146,7 @@ export default function ReportsPage() {
   const fetchInventoryReport = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getProducts({ page: 1 });
+      const result = await fetchProducts({ page: 1 });
       const products = result.data as unknown as ProductRow[];
       setInventoryProducts(products);
       setLowStockProducts(products.filter((p) => p.currentStock <= p.reorderPoint));
@@ -158,7 +158,7 @@ export default function ReportsPage() {
   const fetchCustomerReport = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getInvoices({});
+      const result = await fetchInvoices({});
       const invoices = result.data as unknown as InvoiceRow[];
       const customerCount: Record<string, { name: string; count: number }> = {};
       invoices.forEach((inv) => {
@@ -180,10 +180,10 @@ export default function ReportsPage() {
   const fetchPaymentReport = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getInvoices({ status: "UNPAID" });
+      const result = await fetchInvoices({ status: "UNPAID" });
       setPaymentInvoices(result.data as unknown as InvoiceRow[]);
 
-      const paidResult = await getInvoices({ status: "PAID" });
+      const paidResult = await fetchInvoices({ status: "PAID" });
       const paidInvoices = paidResult.data as unknown as InvoiceRow[];
       const byMethod: Record<string, number> = {};
       paidInvoices.forEach((inv) => {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { getBillings } from "@/server/queries";
+import { fetchBillings } from "@/server/actions/queries";
 import { SearchInput } from "@/components/shared/search-input";
 import { DataTable, type ColumnDef } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -41,7 +41,7 @@ export default function BillingsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getBillings({
+      const result = await fetchBillings({
         page,
         search,
         status: status || undefined,

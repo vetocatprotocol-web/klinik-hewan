@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getProducts } from "@/server/queries";
+import { fetchProducts } from "@/server/actions/queries";
 import { adjustStock } from "@/server/actions/stock";
 import { SearchInput } from "@/components/shared/search-input";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -73,7 +73,7 @@ export default function StockPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getProducts({
+      const result = await fetchProducts({
         page,
         search,
         status: "ACTIVE",

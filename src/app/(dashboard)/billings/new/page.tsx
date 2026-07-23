@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { billingSchema } from "@/lib/validators";
 import { createBilling } from "@/server/actions/billings";
-import { searchCustomers } from "@/server/queries/customers";
+import { fetchSearchCustomers } from "@/server/actions/queries";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +59,7 @@ export default function NewBillingPage() {
     }
     setSearchingCustomer(true);
     try {
-      const results = await searchCustomers(query);
+      const results = await fetchSearchCustomers(query);
       setCustomerResults(results as CustomerOption[]);
     } finally {
       setSearchingCustomer(false);

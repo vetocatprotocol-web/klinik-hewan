@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useActionState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { getBillingById, getActiveServices, getActiveDrugs, getActiveProducts } from "@/server/queries";
+import { fetchBillingById, fetchActiveServices, fetchActiveDrugs, fetchActiveProducts } from "@/server/actions/queries";
 import { addBillingItem, removeBillingItem, completeBilling } from "@/server/actions/billings";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,7 +83,7 @@ export default function BillingDetailPage() {
   const fetchBilling = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getBillingById(id);
+      const data = await fetchBillingById(id);
       if (data) {
         setBilling(data as unknown as BillingData);
       }
@@ -98,13 +98,13 @@ export default function BillingDetailPage() {
 
   const loadMasterItems = useCallback(async (type: string) => {
     if (type === "SERVICE") {
-      const items = await getActiveServices();
+      const items = await fetchActiveServices();
       setMasterItems((items as unknown as MasterItem[]).map((i) => ({ id: i.id, name: i.name, price: i.price })));
     } else if (type === "DRUG") {
-      const items = await getActiveDrugs();
+      const items = await fetchActiveDrugs();
       setMasterItems((items as unknown as MasterItem[]).map((i) => ({ id: i.id, name: i.name, pricePerUnit: i.pricePerUnit })));
     } else if (type === "PRODUCT") {
-      const items = await getActiveProducts();
+      const items = await fetchActiveProducts();
       setMasterItems((items as unknown as MasterItem[]).map((i) => ({ id: i.id, name: i.name, price: i.price })));
     }
   }, []);

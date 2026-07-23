@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getInvoices } from "@/server/queries";
+import { fetchInvoices } from "@/server/actions/queries";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { INVOICE_STATUSES } from "@/lib/constants";
 import { toNumber } from "@/types";
@@ -48,7 +48,7 @@ export default function InvoicesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getInvoices({
+      const result = await fetchInvoices({
         page,
         search,
         status: status || undefined,

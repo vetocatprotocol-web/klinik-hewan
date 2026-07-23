@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getProducts, getProductCategories } from "@/server/queries";
+import { fetchProducts, fetchProductCategories } from "@/server/actions/queries";
 import {
   createProduct,
   updateProduct,
@@ -75,8 +75,8 @@ export default function ProductsPage() {
     setLoading(true);
     try {
       const [productsResult, cats] = await Promise.all([
-        getProducts({ page, search, categoryId: categoryId || undefined }),
-        getProductCategories(),
+        fetchProducts({ page, search, categoryId: categoryId || undefined }),
+        fetchProductCategories(),
       ]);
       setData(productsResult.data as unknown as ProductRow[]);
       setTotalPages(productsResult.totalPages);

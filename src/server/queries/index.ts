@@ -362,19 +362,16 @@ export async function getDashboardStats() {
       prisma.invoice.count({
         where: { status: { in: ["UNPAID", "PARTIAL"] } },
       }),
-      prisma.product.count({
-        where: {
-          status: "ACTIVE",
-          currentStock: { lt: prisma.product.fields.reorderPoint },
-        },
-      }),
+      prisma.$queryRaw`SELECT COUNT(*)::int as count FROM products WHERE status = 'ACTIVE' AND current_stock <= reorder_point`.then(
+        (result: any) => result[0]?.count ?? 0
+      ),
     ]);
 
   return {
     todayVisits,
     todayRevenue: Number(todayRevenue._sum.amount || 0),
     pendingPayments,
-    lowStockProducts,
+    lowStockProducts: Number(lowStockProducts),
   };
 }
 

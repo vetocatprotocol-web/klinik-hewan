@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getSettings } from "@/server/queries";
+import { fetchSettings } from "@/server/actions/queries";
 import {
   updateCompanyInfo,
   updateTaxConfig,
@@ -78,7 +78,7 @@ export default function SettingsPage() {
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getSettings();
+      const data = await fetchSettings();
       setSettings(data as SettingsData);
 
       const ci = data.company_info as CompanyInfo | undefined;

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { getCustomers } from "@/server/queries/customers";
+import { fetchCustomers } from "@/server/actions/queries";
 import { SearchInput } from "@/components/shared/search-input";
 import { DataTable, type ColumnDef } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -41,7 +41,7 @@ export default function CustomersPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getCustomers({ page, search, status: status || undefined });
+      const result = await fetchCustomers({ page, search, status: status || undefined });
       setData(result.data as unknown as CustomerRow[]);
       setTotalPages(result.totalPages);
       setTotalItems(result.total);

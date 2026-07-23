@@ -61,7 +61,7 @@ export async function createCustomer(
   if (data.email) {
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
-    const role = await prisma.role.findFirst({ where: { name: "OWNER" } });
+    const role = await prisma.role.findFirst({ where: { name: "CUSTOMER" } });
 
     if (role) {
       const user = await prisma.user.create({

@@ -10,14 +10,22 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userRole = (session?.user as any)?.role as string;
   const [collapsed, setCollapsed] = useState(false);
+
+  if (status === "loading") {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
-        role={userRole || "OWNER"}
+        role={userRole || ""}
         collapsed={collapsed}
         onToggle={() => setCollapsed((prev) => !prev)}
       />

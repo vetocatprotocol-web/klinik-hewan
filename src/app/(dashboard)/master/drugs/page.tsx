@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getDrugs } from "@/server/queries";
+import { fetchDrugs } from "@/server/actions/queries";
 import {
   createDrug,
   updateDrug,
@@ -63,7 +63,7 @@ export default function DrugsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getDrugs({ page, search });
+      const result = await fetchDrugs({ page, search });
       setData(result.data as unknown as DrugRow[]);
       setTotalPages(result.totalPages);
     } finally {

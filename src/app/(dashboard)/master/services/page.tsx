@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getServices } from "@/server/queries";
+import { fetchServices } from "@/server/actions/queries";
 import {
   createService,
   updateService,
@@ -65,7 +65,7 @@ export default function ServicesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getServices({
+      const result = await fetchServices({
         page,
         search,
         category: category || undefined,
