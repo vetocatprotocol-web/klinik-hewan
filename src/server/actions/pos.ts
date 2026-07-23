@@ -164,30 +164,29 @@ export async function checkoutPos(
   const changeAmount = paymentAmount - total;
 
   // Deduct stock
-  for (const item of order.posOrderItems) {
-    const product = await prisma.product.findUnique({ where: { id: item.productId } });
-    if (!product || product.currentStock < item.quantity) {
-      return {
-        success: false,
-        error: { message: `Stok ${item.product.name} tidak mencukupi`, code: "INSUFFICIENT_STOCK" },
-      };
+  await prisma.$transaction(async (tx) => {
+    for (const item of order.posOrderItems) {
+      const product = await tx.product.findUnique({ where: { id: item.productId } });
+      if (!product || product.currentStock < item.quantity) {
+        throw new Error(`Stok ${item.product.name} tidak mencukupi`);
+      }
+
+      await tx.product.update({
+        where: { id: item.productId },
+        data: { currentStock: { decrement: item.quantity } },
+      });
+
+      await tx.stockAdjustment.create({
+        data: {
+          productId: item.productId,
+          quantity: -item.quantity,
+          reason: "POS_SOLD",
+          referenceId: orderId,
+          createdBy: session.user.id!,
+        },
+      });
     }
-
-    await prisma.product.update({
-      where: { id: item.productId },
-      data: { currentStock: { decrement: item.quantity } },
-    });
-
-    await prisma.stockAdjustment.create({
-      data: {
-        productId: item.productId,
-        quantity: -item.quantity,
-        reason: "POS_SOLD",
-        referenceId: orderId,
-        createdBy: session.user.id!,
-      },
-    });
-  }
+  });
 
   await prisma.posOrder.update({
     where: { id: orderId },

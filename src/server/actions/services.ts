@@ -13,7 +13,7 @@ export async function createService(
   formData: FormData
 ): Promise<ActionResult<string>> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -53,7 +53,7 @@ export async function updateService(
   formData: FormData
 ): Promise<ActionResult<string>> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -89,7 +89,7 @@ export async function updateService(
 
 export async function archiveService(id: string): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -112,7 +112,7 @@ export async function createDrug(
   formData: FormData
 ): Promise<ActionResult<string>> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -152,7 +152,7 @@ export async function updateDrug(
   formData: FormData
 ): Promise<ActionResult<string>> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -188,7 +188,7 @@ export async function updateDrug(
 
 export async function archiveDrug(id: string): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -211,7 +211,7 @@ export async function createProduct(
   formData: FormData
 ): Promise<ActionResult<string>> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -254,7 +254,7 @@ export async function updateProduct(
   formData: FormData
 ): Promise<ActionResult<string>> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -293,7 +293,7 @@ export async function updateProduct(
 
 export async function archiveProduct(id: string): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -316,7 +316,7 @@ export async function createProductCategory(
   formData: FormData
 ): Promise<ActionResult<string>> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -350,7 +350,7 @@ export async function createProductCategory(
 
 export async function archiveProductCategory(id: string): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || ((session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN")) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 

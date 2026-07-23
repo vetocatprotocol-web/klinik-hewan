@@ -179,3 +179,31 @@ export async function resetUserPassword(id: string): Promise<ActionResult<string
 
   return { success: true, data: tempPassword };
 }
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!user) {
+    return { success: false, error: { message: "User tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const isValid = await bcrypt.compare(currentPassword, user.password);
+  if (!isValid) {
+    return { success: false, error: { message: "Password lama salah", field: "currentPassword" } };
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { password: hashedPassword },
+  });
+
+  return { success: true, data: undefined };
+}

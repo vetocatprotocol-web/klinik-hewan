@@ -72,7 +72,7 @@ export default async function PortalPrescriptionsPage() {
                         >
                           - {item.drug?.name || "Obat"}
                           {item.dosage ? ` (${item.dosage})` : ""}
-                          {item.frequency ? ` - ${item.frequency}` : ""}
+                          
                         </p>
                       ))}
                     </div>

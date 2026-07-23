@@ -75,7 +75,7 @@ export default function SettingsPage() {
   const [numberingPrefix, setNumberingPrefix] = useState("");
   const [numberingLength, setNumberingLength] = useState("5");
 
-  const fetchSettings = useCallback(async () => {
+  const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchSettings();
@@ -123,8 +123,8 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    loadSettings();
+  }, [loadSettings]);
 
   const showMessage = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
@@ -145,7 +145,7 @@ export default function SettingsPage() {
       const result = await updateCompanyInfo(null, formData);
       if (result.success) {
         showMessage("success", "Informasi perusahaan berhasil disimpan");
-        fetchSettings();
+        loadSettings();
       } else {
         showMessage("error", result.error.message);
       }
@@ -164,7 +164,7 @@ export default function SettingsPage() {
       const result = await updateTaxConfig(null, formData);
       if (result.success) {
         showMessage("success", "Konfigurasi pajak berhasil disimpan");
-        fetchSettings();
+        loadSettings();
       } else {
         showMessage("error", result.error.message);
       }
@@ -181,7 +181,7 @@ export default function SettingsPage() {
       const result = await updatePaymentMethods(null, formData);
       if (result.success) {
         showMessage("success", "Metode pembayaran berhasil disimpan");
-        fetchSettings();
+        loadSettings();
       } else {
         showMessage("error", result.error.message);
       }

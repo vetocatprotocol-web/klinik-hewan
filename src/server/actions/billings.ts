@@ -140,6 +140,16 @@ export async function removeBillingItem(
     return { success: false, error: { message: "Hanya billing OPEN yang bisa dihapus itemnya", code: "BUSINESS_RULE" } };
   }
 
+  // Verify item belongs to this billing
+  const billingItemCheck = await prisma.billingItem.findUnique({ where: { id: itemId } });
+  if (!billingItemCheck || billingItemCheck.billingId !== billingId) {
+    return { success: false, error: { message: "Item tidak ditemukan dalam billing ini", code: "NOT_FOUND" } };
+  }
+
+  if (billing.createdBy !== session.user.id && (session.user as any).role !== "OWNER" && (session.user as any).role !== "ADMIN") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
   await prisma.billingItem.delete({ where: { id: itemId } });
 
   return { success: true, data: undefined };

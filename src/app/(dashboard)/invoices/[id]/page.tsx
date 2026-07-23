@@ -1,237 +1,103 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getInvoiceById, getSettings } from "@/server/queries";
-import { auth } from "@/server/lib/auth";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
-import { toNumber } from "@/types";
+import prisma from "@/server/lib/prisma";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ArrowLeft, Printer, Mail, CreditCard } from "lucide-react";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { ArrowLeft, Printer, Mail } from "lucide-react";
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
-const statusConfig: Record<string, { label: string; className: string }> = {
-  UNPAID: {
-    label: "Belum Dibayar",
-    className: "bg-red-100 text-red-800 border-red-200",
-  },
-  PARTIAL: {
-    label: "Sebagian",
-    className: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  },
-  PAID: {
-    label: "Dibayar",
-    className: "bg-green-100 text-green-800 border-green-200",
-  },
-};
-
-export default async function InvoiceDetailPage({ params }: PageProps) {
+export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
-  const [invoice, settings] = await Promise.all([
-    getInvoiceById(id),
-    getSettings(),
-  ]);
+  const invoice = await prisma.invoice.findUnique({
+    where: { id },
+    include: {
+      customer: true,
+      pet: true,
+      invoiceItems: true,
+    },
+  });
 
-  if (!invoice) {
-    notFound();
-  }
+  if (!invoice) notFound();
 
-  const statusInfo = statusConfig[invoice.status] || statusConfig.UNPAID;
-  const clinicName = settings.company_name || settings.name || "Klinik Hewan";
-  const clinicAddress = settings.company_address || settings.address || "";
-  const clinicPhone = settings.company_phone || settings.phone || "";
-  const clinicEmail = settings.company_email || settings.email || "";
+  const payments = await prisma.payment.findMany({
+    where: { payableType: "Invoice", payableId: invoice.id },
+    orderBy: { createdAt: "desc" },
+  });
 
-  const subtotal = invoice.invoiceItems.reduce(
-    (sum: number, item: { subtotal: number | string }) => sum + toNumber(item.subtotal),
-    0
-  );
+  const settingsRaw = await prisma.setting.findMany();
+  const settings = settingsRaw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {} as Record<string, any>);
+  const companyInfo = (settings.company_info as any) || {};
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/invoices">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">{invoice.invoiceNumber}</h1>
-            <p className="text-sm text-muted-foreground">
-              Detail invoice
-            </p>
-          </div>
+      <div className="flex items-center gap-4">
+        <Link href="/invoices"><Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
+        <div>
+          <h1 className="text-2xl font-bold">Invoice {invoice.invoiceNumber}</h1>
+          <p className="text-sm text-muted-foreground">{formatDateTime(invoice.invoiceDate)}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Printer className="mr-2 h-4 w-4" />
-            Cetak
-          </Button>
-          {invoice.customer.email && (
-            <Button variant="outline" size="sm">
-              <Mail className="mr-2 h-4 w-4" />
-              Email
-            </Button>
-          )}
-          {invoice.status !== "PAID" && (
-            <Link href={`/invoices/${id}#payment`}>
-              <Button size="sm">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Proses Pembayaran
-              </Button>
-            </Link>
-          )}
+        <div className="ml-auto flex gap-2">
+          <StatusBadge status={invoice.status} />
+          <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
+            <CardContent className="pt-6">
+              <div className="flex justify-between">
                 <div>
-                  <h2 className="text-xl font-bold">{clinicName}</h2>
-                  {clinicAddress && (
-                    <p className="text-sm text-muted-foreground">
-                      {clinicAddress}
-                    </p>
-                  )}
-                  {clinicPhone && (
-                    <p className="text-sm text-muted-foreground">
-                      Telp: {clinicPhone}
-                    </p>
-                  )}
-                  {clinicEmail && (
-                    <p className="text-sm text-muted-foreground">
-                      {clinicEmail}
-                    </p>
-                  )}
+                  <h2 className="text-lg font-bold">{companyInfo.name || "Klinik Hewan"}</h2>
+                  <p className="text-sm text-muted-foreground">{companyInfo.address || ""}</p>
+                  <p className="text-sm text-muted-foreground">{companyInfo.phone || ""}</p>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={statusInfo.className}
-                >
-                  {statusInfo.label}
-                </Badge>
+                <div className="text-right">
+                  <h3 className="text-xl font-bold">INVOICE</h3>
+                  <p className="text-sm">{invoice.invoiceNumber}</p>
+                  <p className="text-sm text-muted-foreground">{formatDateTime(invoice.invoiceDate)}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Detail Invoice</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">No. Invoice</p>
-                  <p className="font-medium">{invoice.invoiceNumber}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Tanggal Invoice</p>
-                  <p className="font-medium">
-                    {formatDate(invoice.invoiceDate)}
-                  </p>
-                </div>
-                {invoice.dueDate && (
-                  <div>
-                    <p className="text-muted-foreground">Jatuh Tempo</p>
-                    <p className="font-medium">
-                      {formatDate(invoice.dueDate)}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Item</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Detail Tagihan</CardTitle></CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Harga</TableHead>
-                    <TableHead className="text-right">Subtotal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoice.invoiceItems.map((item: any) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.name}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.quantity}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(toNumber(item.unitPrice))}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(toNumber(item.subtotal))}
-                      </TableCell>
-                    </TableRow>
+              <div className="mb-4 text-sm">
+                <p><span className="text-muted-foreground">Pelanggan:</span> {invoice.customer.name}</p>
+                <p><span className="text-muted-foreground">Telepon:</span> {invoice.customer.phone}</p>
+                {invoice.pet && <p><span className="text-muted-foreground">Hewan:</span> {invoice.pet.name}</p>}
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 text-left">Item</th>
+                    <th className="py-2 text-right">Qty</th>
+                    <th className="py-2 text-right">Harga</th>
+                    <th className="py-2 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.invoiceItems.map((item) => (
+                    <tr key={item.id} className="border-b">
+                      <td className="py-2">{item.itemName}</td>
+                      <td className="py-2 text-right">{item.quantity}</td>
+                      <td className="py-2 text-right">{formatCurrency(Number(item.unitPrice))}</td>
+                      <td className="py-2 text-right">{formatCurrency(Number(item.subtotal))}</td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(subtotal)}</span>
-                </div>
-                {toNumber(invoice.taxAmount) > 0 && (
-                  <div className="flex justify-between">
-                    <span>Pajak</span>
-                    <span>{formatCurrency(toNumber(invoice.taxAmount))}</span>
-                  </div>
-                )}
-                {toNumber(invoice.discountAmount) > 0 && (
-                  <div className="flex justify-between">
-                    <span>Diskon</span>
-                    <span>
-                      -{formatCurrency(toNumber(invoice.discountAmount))}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t pt-2 text-base font-bold">
-                  <span>Total</span>
-                  <span>{formatCurrency(toNumber(invoice.total))}</span>
-                </div>
-                <div className="flex justify-between text-green-600">
-                  <span>Sudah Dibayar</span>
-                  <span>{formatCurrency(toNumber(invoice.paidAmount))}</span>
-                </div>
-                {toNumber(invoice.total) - toNumber(invoice.paidAmount) > 0 && (
-                  <div className="flex justify-between font-bold text-red-600">
-                    <span>Sisa Tagihan</span>
-                    <span>
-                      {formatCurrency(
-                        toNumber(invoice.total) - toNumber(invoice.paidAmount)
-                      )}
-                    </span>
-                  </div>
+                </tbody>
+              </table>
+              <div className="mt-4 space-y-1 text-sm text-right">
+                <p>Subtotal: {formatCurrency(Number(invoice.subtotal))}</p>
+                {Number(invoice.taxAmount) > 0 && <p>Pajak: {formatCurrency(Number(invoice.taxAmount))}</p>}
+                {Number(invoice.discountAmount) > 0 && <p>Diskon: -{formatCurrency(Number(invoice.discountAmount))}</p>}
+                <p className="text-lg font-bold border-t pt-1">Total: {formatCurrency(Number(invoice.total))}</p>
+                <p className="text-muted-foreground">Dibayar: {formatCurrency(Number(invoice.paidAmount))}</p>
+                {Number(invoice.total) - Number(invoice.paidAmount) > 0 && (
+                  <p className="text-destructive font-bold">Sisa: {formatCurrency(Number(invoice.total) - Number(invoice.paidAmount))}</p>
                 )}
               </div>
             </CardContent>
@@ -240,73 +106,20 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
 
         <div className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Pelanggan</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div>
-                <p className="text-muted-foreground">Nama</p>
-                <Link
-                  href={`/customers/${invoice.customer.id}`}
-                  className="font-medium text-primary hover:underline"
-                >
-                  {invoice.customer.name}
-                </Link>
-              </div>
-              {invoice.customer.phone && (
-                <div>
-                  <p className="text-muted-foreground">Telepon</p>
-                  <p className="font-medium">{invoice.customer.phone}</p>
-                </div>
-              )}
-              {invoice.customer.email && (
-                <div>
-                  <p className="text-muted-foreground">Email</p>
-                  <p className="font-medium">{invoice.customer.email}</p>
-                </div>
-              )}
-              {invoice.pet && (
-                <div>
-                  <p className="text-muted-foreground">Hewan</p>
-                  <p className="font-medium">{invoice.pet.name}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Riwayat Pembayaran</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {invoice.payments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Belum ada pembayaran
-                </p>
+            <CardHeader><CardTitle>Pembayaran</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {payments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Belum ada pembayaran</p>
               ) : (
-                <div className="space-y-3">
-                  {invoice.payments.map((payment: any) => (
-                    <div
-                      key={payment.id}
-                      className="rounded-lg border p-3 text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {formatCurrency(toNumber(payment.amount))}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {payment.paymentMethod} &mdash;{" "}
-                            {formatDateTime(payment.createdAt)}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                          Dibayar
-                        </Badge>
-                      </div>
+                payments.map((payment) => (
+                  <div key={payment.id} className="rounded border p-3 text-sm">
+                    <div className="flex justify-between">
+                      <span>{payment.paymentNumber}</span>
+                      <span className="font-medium">{formatCurrency(Number(payment.amount))}</span>
                     </div>
-                  ))}
-                </div>
+                    <p className="text-xs text-muted-foreground">{payment.paymentMethod} - {formatDateTime(payment.createdAt)}</p>
+                  </div>
+                ))
               )}
             </CardContent>
           </Card>

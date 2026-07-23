@@ -150,3 +150,37 @@ export async function markAllNotificationsRead(): Promise<ActionResult> {
 
   return { success: true, data: undefined };
 }
+
+export async function updateNumberingFormat(
+  _prevState: any,
+  formData: FormData
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const data = {
+    visitPrefix: formData.get("visitPrefix") as string || "VIS",
+    invoicePrefix: formData.get("invoicePrefix") as string || "INV",
+    billingPrefix: formData.get("billingPrefix") as string || "BIL",
+    receiptPrefix: formData.get("receiptPrefix") as string || "RCP",
+    paymentPrefix: formData.get("paymentPrefix") as string || "PAY",
+    prescriptionPrefix: formData.get("prescriptionPrefix") as string || "RX",
+  };
+
+  await prisma.setting.upsert({
+    where: { key: "numbering_format" },
+    update: { value: data },
+    create: { key: "numbering_format", value: data },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "UPDATE",
+    entityType: "Setting",
+    entityId: "numbering_format",
+  });
+
+  return { success: true, data: undefined };
+}
