@@ -1,0 +1,567 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { getInvoices, getProducts } from "@/server/queries";
+import { getVisits } from "@/server/queries/visits";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  Download,
+  CalendarCheck,
+  CircleDollarSign,
+  Package,
+  Users,
+  CreditCard,
+  AlertTriangle,
+} from "lucide-react";
+
+interface VisitRow {
+  id: string;
+  visitNumber: string;
+  visitDate: string;
+  status: string;
+  diagnosis: string;
+  customer: { id: string; name: string };
+  pet: { id: string; name: string };
+  visitItems: { id: string; subtotal: number; service?: { name: string } }[];
+}
+
+interface InvoiceRow {
+  id: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  total: number;
+  paidAmount: number;
+  status: string;
+  customer: { id: string; name: string };
+  payments: { paymentMethod: string; amount: number }[];
+}
+
+interface ProductRow {
+  id: string;
+  name: string;
+  currentStock: number;
+  reorderPoint: number;
+  price: number;
+  status: string;
+  category?: { name: string };
+}
+
+function exportCsv(headers: string[], rows: (string | number)[][], filename: string) {
+  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export default function ReportsPage() {
+  const [activeTab, setActiveTab] = useState("daily");
+  const [loading, setLoading] = useState(false);
+
+  const [dailyDate, setDailyDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [dailyVisits, setDailyVisits] = useState<VisitRow[]>([]);
+  const [dailyRevenue, setDailyRevenue] = useState(0);
+  const [dailyTopServices, setDailyTopServices] = useState<{ name: string; count: number }[]>([]);
+
+  const [revenueDateFrom, setRevenueDateFrom] = useState("");
+  const [revenueDateTo, setRevenueDateTo] = useState("");
+  const [revenueByMethod, setRevenueByMethod] = useState<{ method: string; total: number }[]>([]);
+  const [revenueByService, setRevenueByService] = useState<{ name: string; total: number }[]>([]);
+
+  const [inventoryProducts, setInventoryProducts] = useState<ProductRow[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<ProductRow[]>([]);
+
+  const [customerStats, setCustomerStats] = useState<{ name: string; count: number }[]>([]);
+
+  const [paymentInvoices, setPaymentInvoices] = useState<InvoiceRow[]>([]);
+  const [paymentByMethod, setPaymentByMethod] = useState<{ method: string; total: number }[]>([]);
+
+  const fetchDailyReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getVisits({ dateFrom: dailyDate, dateTo: dailyDate });
+      const visits = result.data as unknown as VisitRow[];
+      setDailyVisits(visits);
+
+      const totalRevenue = visits.reduce(
+        (sum, v) => sum + v.visitItems.reduce((s, i) => s + Number(i.subtotal), 0),
+        0
+      );
+      setDailyRevenue(totalRevenue);
+
+      const serviceCount: Record<string, number> = {};
+      visits.forEach((v) => {
+        v.visitItems.forEach((item) => {
+          if (item.service) {
+            serviceCount[item.service.name] = (serviceCount[item.service.name] || 0) + 1;
+          }
+        });
+      });
+      const topServices = Object.entries(serviceCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+      setDailyTopServices(topServices);
+    } finally {
+      setLoading(false);
+    }
+  }, [dailyDate]);
+
+  const fetchRevenueReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getInvoices({
+        dateFrom: revenueDateFrom || undefined,
+        dateTo: revenueDateTo || undefined,
+      });
+      const invoices = result.data as unknown as InvoiceRow[];
+
+      const byMethod: Record<string, number> = {};
+      invoices.forEach((inv) => {
+        inv.payments.forEach((p) => {
+          byMethod[p.paymentMethod] = (byMethod[p.paymentMethod] || 0) + Number(p.amount);
+        });
+      });
+      setRevenueByMethod(
+        Object.entries(byMethod)
+          .map(([method, total]) => ({ method, total }))
+          .sort((a, b) => b.total - a.total)
+      );
+
+      setRevenueByService([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [revenueDateFrom, revenueDateTo]);
+
+  const fetchInventoryReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getProducts({ page: 1 });
+      const products = result.data as unknown as ProductRow[];
+      setInventoryProducts(products);
+      setLowStockProducts(products.filter((p) => p.currentStock <= p.reorderPoint));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchCustomerReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getInvoices({});
+      const invoices = result.data as unknown as InvoiceRow[];
+      const customerCount: Record<string, { name: string; count: number }> = {};
+      invoices.forEach((inv) => {
+        const id = inv.customer.id;
+        if (!customerCount[id]) {
+          customerCount[id] = { name: inv.customer.name, count: 0 };
+        }
+        customerCount[id].count++;
+      });
+      const stats = Object.values(customerCount)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10) as { name: string; count: number }[];
+      setCustomerStats(stats);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchPaymentReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await getInvoices({ status: "UNPAID" });
+      setPaymentInvoices(result.data as unknown as InvoiceRow[]);
+
+      const paidResult = await getInvoices({ status: "PAID" });
+      const paidInvoices = paidResult.data as unknown as InvoiceRow[];
+      const byMethod: Record<string, number> = {};
+      paidInvoices.forEach((inv) => {
+        inv.payments.forEach((p) => {
+          byMethod[p.paymentMethod] = (byMethod[p.paymentMethod] || 0) + Number(p.amount);
+        });
+      });
+      setPaymentByMethod(
+        Object.entries(byMethod)
+          .map(([method, total]) => ({ method, total }))
+          .sort((a, b) => b.total - a.total)
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "daily") fetchDailyReport();
+    else if (activeTab === "revenue") fetchRevenueReport();
+    else if (activeTab === "inventory") fetchInventoryReport();
+    else if (activeTab === "customers") fetchCustomerReport();
+    else if (activeTab === "payments") fetchPaymentReport();
+  }, [activeTab, fetchDailyReport, fetchRevenueReport, fetchInventoryReport, fetchCustomerReport, fetchPaymentReport]);
+
+  const exportDailyCsv = () => {
+    const headers = ["No. Kunjungan", "Tanggal", "Pelanggan", "Hewan", "Diagnosis", "Total"];
+    const rows = dailyVisits.map((v) => [
+      v.visitNumber,
+      formatDate(v.visitDate),
+      v.customer.name,
+      v.pet.name,
+      v.diagnosis,
+      v.visitItems.reduce((s, i) => s + Number(i.subtotal), 0),
+    ]);
+    exportCsv(headers, rows, `laporan-harian-${dailyDate}.csv`);
+  };
+
+  const exportRevenueCsv = () => {
+    const headers = ["Metode", "Total Pendapatan"];
+    const rows = revenueByMethod.map((r) => [r.method, r.total]);
+    exportCsv(headers, rows, `laporan-pendapatan.csv`);
+  };
+
+  const exportInventoryCsv = () => {
+    const headers = ["Nama", "Kategori", "Stok", "Reorder Point", "Harga", "Status"];
+    const rows = inventoryProducts.map((p) => [
+      p.name,
+      p.category?.name || "-",
+      p.currentStock,
+      p.reorderPoint,
+      p.price,
+      p.currentStock <= p.reorderPoint ? "MENIPIS" : "OK",
+    ]);
+    exportCsv(headers, rows, `laporan-inventaris.csv`);
+  };
+
+  const exportCustomersCsv = () => {
+    const headers = ["Nama Pelanggan", "Jumlah Kunjungan"];
+    const rows = customerStats.map((c) => [c.name, c.count]);
+    exportCsv(headers, rows, `laporan-pelanggan.csv`);
+  };
+
+  const exportPaymentsCsv = () => {
+    const headers = ["No. Invoice", "Pelanggan", "Total", "Status"];
+    const rows = paymentInvoices.map((inv) => [
+      inv.invoiceNumber,
+      inv.customer.name,
+      inv.total,
+      inv.status,
+    ]);
+    exportCsv(headers, rows, `laporan-pembayaran.csv`);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">Laporan</h1>
+        <p className="text-sm text-muted-foreground">
+          Lihat dan ekspor laporan klinik
+        </p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="daily">Harian</TabsTrigger>
+          <TabsTrigger value="revenue">Pendapatan</TabsTrigger>
+          <TabsTrigger value="inventory">Inventaris</TabsTrigger>
+          <TabsTrigger value="customers">Pelanggan</TabsTrigger>
+          <TabsTrigger value="payments">Pembayaran</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="daily" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Laporan Harian</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportDailyCsv}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-end gap-4">
+                <div className="space-y-2">
+                  <Label>Tanggal</Label>
+                  <Input
+                    type="date"
+                    value={dailyDate}
+                    onChange={(e) => setDailyDate(e.target.value)}
+                  />
+                </div>
+                <Button onClick={fetchDailyReport} disabled={loading}>
+                  {loading ? "Memuat..." : "Muat"}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Card>
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <CalendarCheck className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Kunjungan</p>
+                      <p className="text-2xl font-bold">{dailyVisits.length}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <CircleDollarSign className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Pendapatan</p>
+                      <p className="text-2xl font-bold">{formatCurrency(dailyRevenue)}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <Users className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Pelanggan Unik</p>
+                      <p className="text-2xl font-bold">
+                        {new Set(dailyVisits.map((v) => v.customer.id)).size}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              {dailyTopServices.length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-medium">Layanan Teratas</h3>
+                  <div className="space-y-2">
+                    {dailyTopServices.map((s) => (
+                      <div
+                        key={s.name}
+                        className="flex items-center justify-between rounded border p-2"
+                      >
+                        <span className="text-sm">{s.name}</span>
+                        <span className="text-sm font-medium">{s.count}x</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="revenue" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Laporan Pendapatan</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportRevenueCsv}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-end gap-4">
+                <div className="space-y-2">
+                  <Label>Dari Tanggal</Label>
+                  <Input
+                    type="date"
+                    value={revenueDateFrom}
+                    onChange={(e) => setRevenueDateFrom(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sampai Tanggal</Label>
+                  <Input
+                    type="date"
+                    value={revenueDateTo}
+                    onChange={(e) => setRevenueDateTo(e.target.value)}
+                  />
+                </div>
+                <Button onClick={fetchRevenueReport} disabled={loading}>
+                  {loading ? "Memuat..." : "Muat"}
+                </Button>
+              </div>
+              {revenueByMethod.length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-medium">Pendapatan per Metode</h3>
+                  <div className="space-y-2">
+                    {revenueByMethod.map((r) => (
+                      <div
+                        key={r.method}
+                        className="flex items-center justify-between rounded border p-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{r.method}</span>
+                        </div>
+                        <span className="font-medium">{formatCurrency(r.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="inventory" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Laporan Inventaris</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportInventoryCsv}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {lowStockProducts.length > 0 && (
+                <div className="rounded-md bg-yellow-50 p-3">
+                  <div className="flex items-center gap-2 text-yellow-800">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {lowStockProducts.length} produk stok menipis
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                {inventoryProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="flex items-center justify-between rounded border p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {product.category?.name || "-"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p
+                        className={`text-sm font-medium ${
+                          product.currentStock <= product.reorderPoint
+                            ? "text-red-600"
+                            : ""
+                        }`}
+                      >
+                        Stok: {product.currentStock}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Reorder: {product.reorderPoint}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="customers" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Laporan Pelanggan</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportCustomersCsv}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {customerStats.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Belum ada data pelanggan.
+                  </p>
+                ) : (
+                  customerStats.map((c, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded border p-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                          {i + 1}
+                        </span>
+                        <span className="text-sm font-medium">{c.name}</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {c.count} kunjungan
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payments" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Laporan Pembayaran</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportPaymentsCsv}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="mb-2 font-medium">Invoice Belum Dibayar</h3>
+                {paymentInvoices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Semua invoice sudah dibayar.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {paymentInvoices.map((inv) => (
+                      <div
+                        key={inv.id}
+                        className="flex items-center justify-between rounded border p-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">
+                            {inv.invoiceNumber}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {inv.customer.name}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">
+                            {formatCurrency(Number(inv.total))}
+                          </p>
+                          <StatusBadge status={inv.status} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {paymentByMethod.length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-medium">Pembayaran per Metode</h3>
+                  <div className="space-y-2">
+                    {paymentByMethod.map((r) => (
+                      <div
+                        key={r.method}
+                        className="flex items-center justify-between rounded border p-3"
+                      >
+                        <span className="text-sm">{r.method}</span>
+                        <span className="font-medium">
+                          {formatCurrency(r.total)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
