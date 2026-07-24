@@ -1,16 +1,15 @@
 # Klinik Hewan — Implementation Roadmap & Code Patterns
 
 **Focus**: Actionable code improvements and implementation patterns  
-**Timeline**: 4-8 weeks to production-ready with full test coverage
+**Timeline**: production-ready with full test coverage
 
 ---
 
-## Phase 1: Critical Fixes (Week 1)
+## Phase 1: Critical Fixes 
 
 ### 1.1 Replace NextAuth Beta
 
 **Status**: 🔴 CRITICAL  
-**Effort**: 2-4 hours  
 **Risk**: Deployment blocker
 
 **Current Issue**:
@@ -48,10 +47,9 @@ npm audit   # No security issues
 
 ---
 
-### 1.2 Add Error Boundaries (1 day)
+### 1.2 Add Error Boundaries
 
 **Impact**: Prevents white-screen crashes  
-**Effort**: 4 hours
 
 **Add Error Boundary:**
 ```typescript
@@ -118,10 +116,9 @@ export default ErrorBoundary;
 
 ---
 
-### 1.3 Add Rate Limiting (1 day)
+### 1.3 Add Rate Limiting
 
 **Impact**: Prevents DOS attacks, brute force  
-**Effort**: 4 hours
 
 **Install & Configure:**
 ```bash
@@ -178,10 +175,9 @@ UPSTASH_REDIS_REST_TOKEN=...
 
 ---
 
-### 1.4 Add Security Headers (2 hours)
+### 1.4 Add Security Headers
 
 **Impact**: Protects against XSS, clickjacking  
-**Effort**: 2 hours
 
 **Update next.config.ts:**
 ```typescript
@@ -236,7 +232,7 @@ export default nextConfig;
 
 ---
 
-## Phase 2: Testing Foundation (Weeks 2-4)
+## Phase 2: Testing Foundation
 
 ### 2.1 Unit Tests Setup
 
@@ -605,7 +601,7 @@ async function loginAsOwner(page) {
 
 ---
 
-## Phase 3: Observability (Weeks 3-5)
+## Phase 3: Observability
 
 ### 3.1 Structured Logging
 
@@ -700,7 +696,7 @@ NEXT_PUBLIC_SENTRY_DSN=https://...@...ingest.sentry.io/...
 
 ---
 
-## Phase 4: Database Optimization (Week 4-5)
+## Phase 4: Database Optimization
 
 ### 4.1 Fix N+1 Queries
 
@@ -828,7 +824,7 @@ export async function getInvoices(
 
 ---
 
-## Phase 5: Deployment (Week 6)
+## Phase 5: Deployment
 
 ### 5.1 GitHub Actions CI/CD
 
@@ -993,8 +989,3 @@ UPSTASH_REDIS_REST_TOKEN=...
 - [ ] Environment variables documented
 
 ---
-
-**Total Effort**: 4-8 weeks  
-**Team Size**: 1-2 developers  
-**Estimated Completion**: Target production by Week 8
-
