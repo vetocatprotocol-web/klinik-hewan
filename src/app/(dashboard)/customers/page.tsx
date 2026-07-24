@@ -26,7 +26,7 @@ interface CustomerRow {
   email: string | null;
   status: string;
   createdAt: string;
-  pets: { id: string }[];
+  _count: { pets: number };
 }
 
 export default function CustomersPage() {
@@ -86,7 +86,7 @@ export default function CustomersPage() {
       id: "pets",
       header: "Hewan",
       renderCell: (row) => (
-        <span className="text-muted-foreground">{row.pets.length}</span>
+        <span className="text-muted-foreground">{row._count.pets}</span>
       ),
     },
     {

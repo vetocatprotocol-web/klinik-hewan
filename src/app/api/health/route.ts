@@ -5,24 +5,19 @@ export async function GET() {
   const checks: Record<string, string> = {};
   let status = "healthy";
 
-  // Database check
+  // Database + Prisma check (single client)
   try {
     const client = await prisma();
-    await client.$queryRaw`SELECT 1`;
+    const [dbCheck, countResult] = await Promise.all([
+      client.$queryRaw`SELECT 1`,
+      client.$queryRaw`SELECT COUNT(*)::int as count FROM "settings"`,
+    ]);
     checks.database = "connected";
-  } catch {
-    checks.database = "disconnected";
-    status = "unhealthy";
-  }
-
-  // Prisma check
-  try {
-    const client = await prisma();
-    await client.$queryRaw`SELECT COUNT(*)::int as count FROM "settings"`;
     checks.prisma = "connected";
   } catch {
+    checks.database = "disconnected";
     checks.prisma = "error";
-    status = "degraded";
+    status = "unhealthy";
   }
 
   const response = {

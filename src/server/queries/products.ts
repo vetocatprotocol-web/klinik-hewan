@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { cached } from "../lib/cache";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getProducts({
@@ -33,18 +34,22 @@ export async function getProducts({
 }
 
 export async function getActiveProducts() {
-  const client = await prisma();
-  return client.product.findMany({
-    where: { status: "ACTIVE" },
-    include: { category: true },
-    orderBy: { name: "asc" },
-  });
+  return cached("products:active", async () => {
+    const client = await prisma();
+    return client.product.findMany({
+      where: { status: "ACTIVE" },
+      include: { category: true },
+      orderBy: { name: "asc" },
+    });
+  }, 30_000); // cache 30s
 }
 
 export async function getProductCategories() {
-  const client = await prisma();
-  return client.productCategory.findMany({
-    where: { status: "ACTIVE" },
-    orderBy: { name: "asc" },
-  });
+  return cached("products:categories", async () => {
+    const client = await prisma();
+    return client.productCategory.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { name: "asc" },
+    });
+  }, 60_000); // cache 60s — categories change rarely
 }

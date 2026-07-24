@@ -19,7 +19,7 @@ interface PrescriptionRow {
   createdAt: string;
   customer: { name: string };
   pet: { name: string; species: string };
-  prescriptionItems: Array<{ drug: { name: string } | null }>;
+  _count: { prescriptionItems: number };
 }
 
 export default function PrescriptionsPage() {
@@ -73,7 +73,7 @@ export default function PrescriptionsPage() {
       id: "drugs",
       header: "Obat",
       renderCell: (row) => {
-        const count = row.prescriptionItems?.length || 0;
+        const count = row._count?.prescriptionItems || 0;
         return (
           <span className="text-muted-foreground">
             {count} obat

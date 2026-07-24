@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { cached } from "../lib/cache";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getCustomers({
@@ -10,42 +11,45 @@ export async function getCustomers({
   search?: string;
   status?: string;
 }) {
-  const client = await prisma();
-  const where: any = {};
+  const cacheKey = `customers:${page}:${search}:${status}`;
+  return cached(cacheKey, async () => {
+    const client = await prisma();
+    const where: any = {};
 
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { phone: { contains: search } },
-      { email: { contains: search, mode: "insensitive" } },
-    ];
-  }
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-  if (status) {
-    where.status = status;
-  }
+    if (status) {
+      where.status = status;
+    }
 
-  const [data, total] = await Promise.all([
-    client.customer.findMany({
-      where,
-      include: {
-        pets: { where: { status: "ACTIVE" } },
-        user: { select: { id: true, email: true, status: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    client.customer.count({ where }),
-  ]);
+    const [data, total] = await Promise.all([
+      client.customer.findMany({
+        where,
+        include: {
+          _count: { select: { pets: { where: { status: "ACTIVE" } } } },
+          user: { select: { id: true, email: true, status: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+      }),
+      client.customer.count({ where }),
+    ]);
 
-  return {
-    data,
-    total,
-    page,
-    pageSize: PAGE_SIZE,
-    totalPages: Math.ceil(total / PAGE_SIZE),
-  };
+    return {
+      data,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages: Math.ceil(total / PAGE_SIZE),
+    };
+  }, 10_000);
 }
 
 export async function getCustomerById(id: string) {

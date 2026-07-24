@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { cached } from "../lib/cache";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getVisits({
@@ -18,49 +19,52 @@ export async function getVisits({
   dateFrom?: string;
   dateTo?: string;
 }) {
-  const client = await prisma();
-  const where: any = {};
+  const cacheKey = `visits:${page}:${search}:${status}:${customerId}:${petId}:${dateFrom}:${dateTo}`;
+  return cached(cacheKey, async () => {
+    const client = await prisma();
+    const where: any = {};
 
-  if (search) {
-    where.OR = [
-      { visitNumber: { contains: search, mode: "insensitive" } },
-      { customer: { name: { contains: search, mode: "insensitive" } } },
-      { diagnosis: { contains: search, mode: "insensitive" } },
-    ];
-  }
+    if (search) {
+      where.OR = [
+        { visitNumber: { contains: search, mode: "insensitive" } },
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+        { diagnosis: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-  if (status) where.status = status;
-  if (customerId) where.customerId = customerId;
-  if (petId) where.petId = petId;
-  if (dateFrom || dateTo) {
-    where.visitDate = {};
-    if (dateFrom) where.visitDate.gte = new Date(dateFrom);
-    if (dateTo) where.visitDate.lte = new Date(dateTo);
-  }
+    if (status) where.status = status;
+    if (customerId) where.customerId = customerId;
+    if (petId) where.petId = petId;
+    if (dateFrom || dateTo) {
+      where.visitDate = {};
+      if (dateFrom) where.visitDate.gte = new Date(dateFrom);
+      if (dateTo) where.visitDate.lte = new Date(dateTo);
+    }
 
-  const [data, total] = await Promise.all([
-    client.visit.findMany({
-      where,
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        pet: { select: { id: true, name: true, species: true } },
-        creator: { select: { id: true, name: true } },
-        visitItems: true,
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    client.visit.count({ where }),
-  ]);
+    const [data, total] = await Promise.all([
+      client.visit.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          pet: { select: { id: true, name: true, species: true } },
+          creator: { select: { id: true, name: true } },
+          _count: { select: { visitItems: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+      }),
+      client.visit.count({ where }),
+    ]);
 
-  return {
-    data,
-    total,
-    page,
-    pageSize: PAGE_SIZE,
-    totalPages: Math.ceil(total / PAGE_SIZE),
-  };
+    return {
+      data,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages: Math.ceil(total / PAGE_SIZE),
+    };
+  }, 10_000);
 }
 
 export async function getVisitById(id: string) {

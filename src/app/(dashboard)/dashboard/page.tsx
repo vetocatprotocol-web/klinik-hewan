@@ -8,8 +8,7 @@ import {
 } from "@/server/queries";
 import { formatCurrency } from "@/lib/utils";
 import { StatCard } from "@/components/cards/stat-card";
-import { VisitsChart } from "@/components/charts/visits-chart";
-import { RevenueChart } from "@/components/charts/revenue-chart";
+import { VisitsChart, RevenueChart } from "@/components/charts/lazy-charts";
 import {
   CardSkeleton,
   DashboardChartsSkeleton,

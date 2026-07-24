@@ -83,38 +83,31 @@ export async function addPosItem(
   const unitPrice = Number(product.price);
   const subtotal = unitPrice * quantity;
 
-  await client.posOrderItem.create({
-    data: {
-      posOrderId: orderId,
-      productId,
-      quantity,
-      unitPrice,
-      subtotal,
-    },
-  });
+  // Create item and recalculate totals in a single transaction
+  await client.$transaction(async (tx) => {
+    await tx.posOrderItem.create({
+      data: { posOrderId: orderId, productId, quantity, unitPrice, subtotal },
+    });
 
-  // Update order totals
-  const items = await client.posOrderItem.findMany({ where: { posOrderId: orderId } });
-  const orderSubtotal = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
+    // Use SQL aggregation instead of fetching all items
+    const result: any[] = await tx.$queryRaw`
+      SELECT COALESCE(SUM(subtotal), 0)::numeric as total FROM pos_order_items WHERE pos_order_id = ${orderId}
+    `;
+    const orderSubtotal = Number(result[0]?.total || 0);
 
-  const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
-  const taxConfig = taxSetting?.value as any;
-  let taxAmount = 0;
-  if (taxConfig?.enabled) {
-    if (taxConfig.type === "PERCENTAGE") {
-      taxAmount = orderSubtotal * (taxConfig.value / 100);
-    } else {
-      taxAmount = taxConfig.value;
+    const taxSetting = await tx.setting.findUnique({ where: { key: "tax_config" } });
+    const taxConfig = taxSetting?.value as any;
+    let taxAmount = 0;
+    if (taxConfig?.enabled) {
+      taxAmount = taxConfig.type === "PERCENTAGE"
+        ? Math.round(orderSubtotal * (taxConfig.value / 100))
+        : taxConfig.value;
     }
-  }
 
-  await client.posOrder.update({
-    where: { id: orderId },
-    data: {
-      subtotal: orderSubtotal,
-      taxAmount,
-      total: orderSubtotal + taxAmount,
-    },
+    await tx.posOrder.update({
+      where: { id: orderId },
+      data: { subtotal: orderSubtotal, taxAmount, total: orderSubtotal + taxAmount },
+    });
   });
 
   return { success: true, data: undefined };

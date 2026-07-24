@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { cached } from "../lib/cache";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getPrescriptions({
@@ -10,32 +11,35 @@ export async function getPrescriptions({
   search?: string;
   customerId?: string;
 }) {
-  const client = await prisma();
-  const where: any = {};
-  if (search) {
-    where.OR = [
-      { prescriptionNumber: { contains: search, mode: "insensitive" } },
-      { customer: { name: { contains: search, mode: "insensitive" } } },
-    ];
-  }
-  if (customerId) where.customerId = customerId;
+  const cacheKey = `prescriptions:${page}:${search}:${customerId}`;
+  return cached(cacheKey, async () => {
+    const client = await prisma();
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { prescriptionNumber: { contains: search, mode: "insensitive" } },
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+    if (customerId) where.customerId = customerId;
 
-  const [data, total] = await Promise.all([
-    client.prescription.findMany({
-      where,
-      include: {
-        customer: { select: { name: true } },
-        pet: { select: { name: true, species: true } },
-        prescriptionItems: { include: { drug: { select: { name: true } } } },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    client.prescription.count({ where }),
-  ]);
+    const [data, total] = await Promise.all([
+      client.prescription.findMany({
+        where,
+        include: {
+          customer: { select: { name: true } },
+          pet: { select: { name: true, species: true } },
+          _count: { select: { prescriptionItems: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+      }),
+      client.prescription.count({ where }),
+    ]);
 
-  return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
+    return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
+  }, 10_000);
 }
 
 export async function getPrescriptionById(id: string) {

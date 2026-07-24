@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchActiveProducts, fetchProductCategories, fetchSettings } from "@/server/actions/queries";
 import { processPosTransaction } from "@/server/actions/pos";
 import { formatCurrency } from "@/lib/utils";
@@ -96,15 +96,14 @@ export default function POSPage() {
     loadData();
   }, []);
 
-  const filteredProducts = products.filter((p) => {
+  const filteredProducts = useMemo(() => products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchCategory = selectedCategory === "all" || p.category.id === selectedCategory;
     return matchSearch && matchCategory;
-  });
+  }), [products, search, selectedCategory]);
 
-  const recalculateTotals = (items: CartItem[], disc: number) => {
+  const recalculateTotals = useCallback((items: CartItem[], disc: number) => {
     const sub = items.reduce((sum, item) => sum + item.subtotal, 0);
-    setSubtotal(sub);
     let tax = 0;
     if (taxConfig.enabled) {
       if (taxConfig.type === "PERCENTAGE") {
@@ -113,14 +112,13 @@ export default function POSPage() {
         tax = taxConfig.value;
       }
     }
-    setTaxAmount(tax);
     const t = sub + tax - disc;
+    const paid = parseFloat(paymentAmount) || 0;
+    setSubtotal(sub);
+    setTaxAmount(tax);
     setTotal(t);
-    if (paymentAmount) {
-      const paid = parseFloat(paymentAmount) || 0;
-      setChangeAmount(Math.max(0, paid - t));
-    }
-  };
+    setChangeAmount(Math.max(0, paid - t));
+  }, [taxConfig, paymentAmount]);
 
   const handleAddToCart = (product: Product) => {
     setCartError(null);
