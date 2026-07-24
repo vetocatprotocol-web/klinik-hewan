@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { getAuthSecret } from "./auth-secret";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 30;
@@ -12,6 +13,7 @@ async function getPrismaClient() {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  secret: getAuthSecret(),
   providers: [
     Credentials({
       credentials: {
