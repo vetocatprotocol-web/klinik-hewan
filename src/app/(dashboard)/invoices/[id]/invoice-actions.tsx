@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { processPayment, emailInvoice } from "@/server/actions/invoices";
+import { emailInvoice } from "@/server/actions/invoices";
+import { processPayment } from "@/server/actions/payments";
 import { CreditCard, Mail, Loader2 } from "lucide-react";
 
 interface InvoiceActionsProps {

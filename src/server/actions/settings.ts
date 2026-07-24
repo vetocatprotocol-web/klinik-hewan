@@ -154,3 +154,17 @@ export async function updateNumberingFormat(
 
   return { success: true, data: undefined };
 }
+
+export async function markAllNotificationsRead(): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  await prisma.notification.updateMany({
+    where: { userId: session.user.id!, isRead: false },
+    data: { isRead: true, readAt: new Date() },
+  });
+
+  return { success: true, data: undefined };
+}

@@ -57,6 +57,7 @@ export async function processPayment(
   const paymentNumber = generatePaymentNumber(now);
   const newPaidAmount = Number(invoice.paidAmount) + data.amount;
   const newStatus = newPaidAmount >= Number(invoice.total) ? "PAID" : "PARTIAL";
+  const userId = session.user.id!;
 
   await prisma.$transaction(async (tx) => {
     await tx.payment.create({
@@ -67,7 +68,7 @@ export async function processPayment(
         paymentMethod: data.paymentMethod,
         amount: data.amount,
         status: "PAID",
-        receivedBy: session.user.id!,
+        receivedBy: userId,
       },
     });
 
