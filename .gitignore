@@ -49,3 +49,6 @@ next-env.d.ts
 .kilo
 AGENTS.md
 CLAUDE.md
+supabase/.temp/
+.env.local
+.env.vercel
