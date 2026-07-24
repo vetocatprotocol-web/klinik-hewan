@@ -4,13 +4,14 @@ import { auth } from "../lib/auth";
 import { loginSchema } from "@/lib/validators";
 import { signIn, signOut } from "../lib/auth";
 import bcrypt from "bcryptjs";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
 
 export async function login(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
+  const client = await prisma();
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
@@ -23,7 +24,7 @@ export async function login(
   }
 
   // Check if account is locked before attempting signIn
-  const user = await prisma.user.findUnique({
+  const user = await client.user.findUnique({
     where: { email },
     include: { role: true },
   });
@@ -38,7 +39,7 @@ export async function login(
 
   // If lockout has expired, reset the counter
   if (user && user.lockedUntil && user.lockedUntil <= new Date()) {
-    await prisma.user.update({
+    await client.user.update({
       where: { id: user.id },
       data: { failedLoginAttempts: 0, lockedUntil: null },
     });
@@ -62,7 +63,7 @@ export async function login(
         if (newAttempts >= 5) {
           updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
         }
-        await prisma.user.update({ where: { id: user.id }, data: updateData });
+        await client.user.update({ where: { id: user.id }, data: updateData });
       }
       return {
         success: false,
@@ -92,12 +93,13 @@ export async function forgotPassword(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
+  const client = await prisma();
   const email = formData.get("email") as string;
   if (!email) {
     return { success: false, error: { message: "Email harus diisi", field: "email" } };
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await client.user.findUnique({ where: { email } });
   if (!user) {
     // Return success even if user doesn't exist (prevent email enumeration)
     return { success: true, data: undefined };
@@ -108,7 +110,7 @@ export async function forgotPassword(
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hour expiry per PRD §14.3
 
   // Store token in database
-  await prisma.user.update({
+  await client.user.update({
     where: { id: user.id },
     data: {
       resetToken: token,
@@ -161,6 +163,7 @@ export async function resetPassword(
   email: string,
   newPassword: string
 ): Promise<ActionResult> {
+  const client = await prisma();
   if (!token || !email || !newPassword) {
     return { success: false, error: { message: "Data tidak lengkap" } };
   }
@@ -179,7 +182,7 @@ export async function resetPassword(
     return { success: false, error: { message: "Password harus mengandung angka" } };
   }
 
-  const user = await prisma.user.findUnique({
+  const user = await client.user.findUnique({
     where: { email },
   });
 
@@ -200,7 +203,7 @@ export async function resetPassword(
   // Hash new password and update
   const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-  await prisma.user.update({
+  await client.user.update({
     where: { id: user.id },
     data: {
       password: hashedPassword,

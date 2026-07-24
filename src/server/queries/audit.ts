@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getAuditLogs({
@@ -14,6 +14,7 @@ export async function getAuditLogs({
   dateFrom?: string;
   dateTo?: string;
 } = {}) {
+  const client = await prisma();
   const where: any = {};
   if (action) where.action = action;
   if (entityType) where.entityType = entityType;
@@ -24,14 +25,14 @@ export async function getAuditLogs({
   }
 
   const [data, total] = await Promise.all([
-    prisma.auditLog.findMany({
+    client.auditLog.findMany({
       where,
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.auditLog.count({ where }),
+    client.auditLog.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };

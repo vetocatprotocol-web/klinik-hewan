@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "./prisma";
+import { prisma } from "./prisma";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -41,7 +41,8 @@ function escapeHtml(str: string): string {
 }
 
 async function getCompanyInfo() {
-  const setting = await prisma.setting.findUnique({ where: { key: "company_info" } });
+  const client = await prisma();
+  const setting = await client.setting.findUnique({ where: { key: "company_info" } });
   return (setting?.value as any) || {};
 }
 
@@ -87,7 +88,8 @@ function basePrintStyles(): string {
 }
 
 export async function generateInvoiceHtml(invoiceId: string): Promise<string> {
-  const invoice = await prisma.invoice.findUnique({
+  const client = await prisma();
+  const invoice = await client.invoice.findUnique({
     where: { id: invoiceId },
     include: {
       customer: true,
@@ -100,7 +102,7 @@ export async function generateInvoiceHtml(invoiceId: string): Promise<string> {
     return `<html><body><h1>Invoice tidak ditemukan</h1></body></html>`;
   }
 
-  const payments = await prisma.payment.findMany({
+  const payments = await client.payment.findMany({
     where: { payableType: "Invoice", payableId: invoice.id },
     orderBy: { createdAt: "desc" },
   });
@@ -260,7 +262,8 @@ export async function generateInvoiceHtml(invoiceId: string): Promise<string> {
 }
 
 export async function generatePrescriptionHtml(prescriptionId: string): Promise<string> {
-  const prescription = await prisma.prescription.findUnique({
+  const client = await prisma();
+  const prescription = await client.prescription.findUnique({
     where: { id: prescriptionId },
     include: {
       customer: true,
@@ -369,7 +372,8 @@ export async function generatePrescriptionHtml(prescriptionId: string): Promise<
 }
 
 export async function generateVisitNotesHtml(visitId: string): Promise<string> {
-  const visit = await prisma.visit.findUnique({
+  const client = await prisma();
+  const visit = await client.visit.findUnique({
     where: { id: visitId },
     include: {
       customer: true,
@@ -507,9 +511,9 @@ export async function generateVisitNotesHtml(visitId: string): Promise<string> {
 </body>
 </html>`;
 }
-
 export async function generateReceiptHtml(orderId: string): Promise<string> {
-  const order = await prisma.posOrder.findUnique({
+  const client = await prisma();
+  const order = await client.posOrder.findUnique({
     where: { id: orderId },
     include: {
       posOrderItems: {

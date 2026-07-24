@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
 import { generateOrderNumber, generatePaymentNumber, generateInvoiceNumber } from "@/lib/utils";
 import { createAuditLog } from "../lib/audit";
@@ -12,6 +12,7 @@ const POS_ROLES = ["OWNER", "KASIR"];
 export async function createPosOrder(
   customerId?: string
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -24,7 +25,7 @@ export async function createPosOrder(
 
   const orderNumber = generateOrderNumber(new Date());
 
-  const order = await prisma.posOrder.create({
+  const order = await client.posOrder.create({
     data: {
       orderNumber,
       customerId: customerId || null,
@@ -56,6 +57,7 @@ export async function addPosItem(
   productId: string,
   quantity: number
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -66,7 +68,7 @@ export async function addPosItem(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
+  const product = await client.product.findUnique({ where: { id: productId } });
   if (!product || product.status !== "ACTIVE") {
     return { success: false, error: { message: "Produk tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
   }
@@ -81,7 +83,7 @@ export async function addPosItem(
   const unitPrice = Number(product.price);
   const subtotal = unitPrice * quantity;
 
-  await prisma.posOrderItem.create({
+  await client.posOrderItem.create({
     data: {
       posOrderId: orderId,
       productId,
@@ -92,10 +94,10 @@ export async function addPosItem(
   });
 
   // Update order totals
-  const items = await prisma.posOrderItem.findMany({ where: { posOrderId: orderId } });
+  const items = await client.posOrderItem.findMany({ where: { posOrderId: orderId } });
   const orderSubtotal = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
-  const taxSetting = await prisma.setting.findUnique({ where: { key: "tax_config" } });
+  const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
   const taxConfig = taxSetting?.value as any;
   let taxAmount = 0;
   if (taxConfig?.enabled) {
@@ -106,7 +108,7 @@ export async function addPosItem(
     }
   }
 
-  await prisma.posOrder.update({
+  await client.posOrder.update({
     where: { id: orderId },
     data: {
       subtotal: orderSubtotal,
@@ -122,6 +124,7 @@ export async function removePosItem(
   orderId: string,
   itemId: string
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -132,25 +135,25 @@ export async function removePosItem(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const order = await prisma.posOrder.findUnique({ where: { id: orderId } });
+  const order = await client.posOrder.findUnique({ where: { id: orderId } });
   if (!order) {
     return { success: false, error: { message: "Pesanan tidak ditemukan", code: "NOT_FOUND" } };
   }
 
   // Get item before deletion to restore stock
-  const orderItem = await prisma.posOrderItem.findUnique({ where: { id: itemId } });
+  const orderItem = await client.posOrderItem.findUnique({ where: { id: itemId } });
   if (!orderItem || orderItem.posOrderId !== orderId) {
     return { success: false, error: { message: "Item tidak ditemukan dalam pesanan ini", code: "NOT_FOUND" } };
   }
 
   // Restore stock for the product
   if (orderItem.productId) {
-    await prisma.product.update({
+    await client.product.update({
       where: { id: orderItem.productId },
       data: { currentStock: { increment: orderItem.quantity } },
     });
 
-    await prisma.stockAdjustment.create({
+    await client.stockAdjustment.create({
       data: {
         productId: orderItem.productId,
         quantity: orderItem.quantity,
@@ -162,13 +165,13 @@ export async function removePosItem(
     });
   }
 
-  await prisma.posOrderItem.delete({ where: { id: itemId } });
+  await client.posOrderItem.delete({ where: { id: itemId } });
 
   // Update order totals
-  const items = await prisma.posOrderItem.findMany({ where: { posOrderId: orderId } });
+  const items = await client.posOrderItem.findMany({ where: { posOrderId: orderId } });
   const orderSubtotal = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
-  const taxSetting = await prisma.setting.findUnique({ where: { key: "tax_config" } });
+  const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
   const taxConfig = taxSetting?.value as any;
   let taxAmount = 0;
   if (taxConfig?.enabled) {
@@ -179,7 +182,7 @@ export async function removePosItem(
     }
   }
 
-  await prisma.posOrder.update({
+  await client.posOrder.update({
     where: { id: orderId },
     data: {
       subtotal: orderSubtotal,
@@ -197,6 +200,7 @@ export async function checkoutPos(
   paymentAmount: number,
   discountAmount: number = 0
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -207,7 +211,7 @@ export async function checkoutPos(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const order = await prisma.posOrder.findUnique({
+  const order = await client.posOrder.findUnique({
     where: { id: orderId },
     include: { posOrderItems: { include: { product: true } } },
   });
@@ -239,7 +243,7 @@ export async function checkoutPos(
   const { checkLowStock } = await import("../lib/notifications");
 
   // Deduct stock + create invoice + payment in a single transaction
-  await prisma.$transaction(async (tx) => {
+  await client.$transaction(async (tx) => {
     for (const item of order.posOrderItems) {
       const product = await tx.product.findUnique({ where: { id: item.productId } });
       if (!product || product.currentStock < item.quantity) {
@@ -365,6 +369,7 @@ interface PosCheckoutInput {
 }
 
 export async function processPosTransaction(input: PosCheckoutInput): Promise<ActionResult<{ orderNumber: string; changeAmount: number }>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -388,7 +393,7 @@ export async function processPosTransaction(input: PosCheckoutInput): Promise<Ac
   const orderNumber = generateOrderNumber(new Date());
   const { checkLowStock } = await import("../lib/notifications");
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await client.$transaction(async (tx) => {
     // Fetch all products and validate stock
     const productIds = input.items.map((i) => i.productId);
     const products = await tx.product.findMany({ where: { id: { in: productIds } } });
@@ -567,6 +572,7 @@ export async function processPosTransaction(input: PosCheckoutInput): Promise<Ac
 }
 
 export async function downloadReceiptPdf(orderId: string): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -577,7 +583,7 @@ export async function downloadReceiptPdf(orderId: string): Promise<ActionResult<
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const order = await prisma.posOrder.findUnique({ where: { id: orderId } });
+  const order = await client.posOrder.findUnique({ where: { id: orderId } });
   if (!order) {
     return { success: false, error: { message: "Pesanan tidak ditemukan", code: "NOT_FOUND" } };
   }

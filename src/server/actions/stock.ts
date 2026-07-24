@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { stockAdjustmentSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
@@ -10,6 +10,7 @@ export async function adjustStock(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -33,7 +34,7 @@ export async function adjustStock(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const product = await prisma.product.findUnique({ where: { id: data.productId } });
+  const product = await client.product.findUnique({ where: { id: data.productId } });
   if (!product) {
     return { success: false, error: { message: "Produk tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -43,12 +44,12 @@ export async function adjustStock(
     return { success: false, error: { message: "Stok tidak boleh negatif", code: "BUSINESS_RULE" } };
   }
 
-  await prisma.$transaction([
-    prisma.product.update({
+  await client.$transaction([
+    client.product.update({
       where: { id: data.productId },
       data: { currentStock: newStock },
     }),
-    prisma.stockAdjustment.create({
+    client.stockAdjustment.create({
       data: {
         productId: data.productId,
         quantity: data.quantity,

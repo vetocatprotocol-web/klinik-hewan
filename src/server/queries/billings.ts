@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getBillings({
@@ -12,6 +12,7 @@ export async function getBillings({
   status?: string;
   customerId?: string;
 }) {
+  const client = await prisma();
   const where: any = {};
   if (search) {
     where.OR = [
@@ -23,7 +24,7 @@ export async function getBillings({
   if (customerId) where.customerId = customerId;
 
   const [data, total] = await Promise.all([
-    prisma.billing.findMany({
+    client.billing.findMany({
       where,
       include: {
         customer: { select: { id: true, name: true, phone: true } },
@@ -34,14 +35,15 @@ export async function getBillings({
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.billing.count({ where }),
+    client.billing.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
 }
 
 export async function getBillingById(id: string) {
-  return prisma.billing.findUnique({
+  const client = await prisma();
+  return client.billing.findUnique({
     where: { id },
     include: {
       customer: true,

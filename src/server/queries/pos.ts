@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getPosOrders({
@@ -10,6 +10,7 @@ export async function getPosOrders({
   dateFrom?: string;
   dateTo?: string;
 }) {
+  const client = await prisma();
   const where: any = {};
   if (dateFrom || dateTo) {
     where.createdAt = {};
@@ -18,7 +19,7 @@ export async function getPosOrders({
   }
 
   const [data, total] = await Promise.all([
-    prisma.posOrder.findMany({
+    client.posOrder.findMany({
       where,
       include: {
         customer: { select: { id: true, name: true } },
@@ -28,7 +29,7 @@ export async function getPosOrders({
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.posOrder.count({ where }),
+    client.posOrder.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };

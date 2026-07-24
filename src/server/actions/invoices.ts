@@ -1,18 +1,19 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 import { sendEmail, generateInvoiceEmail } from "../lib/email";
 
 export async function getInvoice(invoiceId: string): Promise<ActionResult<any>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await client.invoice.findUnique({
     where: { id: invoiceId },
     include: {
       customer: { select: { id: true, name: true, email: true, phone: true, address: true } },
@@ -29,11 +30,12 @@ export async function getInvoice(invoiceId: string): Promise<ActionResult<any>> 
 }
 
 export async function getInvoicePayments(invoiceId: string) {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     throw new Error("UNAUTHORIZED");
   }
-  return prisma.payment.findMany({
+  return client.payment.findMany({
     where: { payableId: invoiceId, payableType: "Invoice" },
     include: { receiver: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
@@ -45,6 +47,7 @@ export async function deletePayment(_paymentId: string): Promise<ActionResult> {
 }
 
 export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -55,7 +58,7 @@ export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResul
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await client.invoice.findUnique({
     where: { id: invoiceId },
     include: {
       customer: { select: { name: true, email: true, phone: true, address: true } },
@@ -81,6 +84,7 @@ export async function emailInvoice(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -96,7 +100,7 @@ export async function emailInvoice(
     return { success: false, error: { message: "Invoice ID harus diisi", code: "VALIDATION" } };
   }
 
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await client.invoice.findUnique({
     where: { id: invoiceId },
     include: { customer: { select: { name: true, email: true } } },
   });

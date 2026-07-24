@@ -1,11 +1,12 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 
 const REPORT_ROLES = ["OWNER", "ADMIN"];
 
 export async function getDailyReport(date?: string) {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
@@ -17,7 +18,7 @@ export async function getDailyReport(date?: string) {
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
   const [visits, payments, lowStockProducts] = await Promise.all([
-    prisma.visit.findMany({
+    client.visit.findMany({
       where: { createdAt: { gte: startOfDay, lt: endOfDay } },
       include: {
         visitItems: true,
@@ -25,10 +26,10 @@ export async function getDailyReport(date?: string) {
         pet: { select: { name: true } },
       },
     }),
-    prisma.payment.findMany({
+    client.payment.findMany({
       where: { createdAt: { gte: startOfDay, lt: endOfDay }, status: "PAID" },
     }),
-    prisma.product.findMany({
+    client.product.findMany({
       where: { status: "ACTIVE" },
       select: { id: true, name: true, currentStock: true, reorderPoint: true },
     }).then((products) => products.filter((p) => p.currentStock < p.reorderPoint)),
@@ -48,6 +49,7 @@ export async function getDailyReport(date?: string) {
 }
 
 export async function getRevenueReport(startDate: string, endDate: string) {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
@@ -58,7 +60,7 @@ export async function getRevenueReport(startDate: string, endDate: string) {
   const end = new Date(endDate);
   end.setHours(23, 59, 59, 999);
 
-  const payments = await prisma.payment.findMany({
+  const payments = await client.payment.findMany({
     where: { createdAt: { gte: start, lte: end }, status: "PAID" },
     orderBy: { createdAt: "asc" },
   });
@@ -73,10 +75,11 @@ export async function getRevenueReport(startDate: string, endDate: string) {
 }
 
 export async function getInventoryReport() {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const products = await prisma.product.findMany({
+  const products = await client.product.findMany({
     include: { category: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
@@ -88,13 +91,14 @@ export async function getInventoryReport() {
 }
 
 export async function getCustomerReport() {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
   const role = (session.user as any).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
-  const customers = await prisma.customer.findMany({
+  const customers = await client.customer.findMany({
     where: { status: "ACTIVE" },
     include: {
       visits: { select: { id: true, createdAt: true } },
@@ -115,19 +119,20 @@ export async function getCustomerReport() {
 }
 
 export async function getPaymentReport() {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
   const role = (session.user as any).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
-  const unpaidInvoices = await prisma.invoice.findMany({
+  const unpaidInvoices = await client.invoice.findMany({
     where: { status: { in: ["UNPAID", "PARTIAL"] } },
     include: { customer: { select: { name: true } } },
     orderBy: { invoiceDate: "asc" },
   });
 
-  const allPayments = await prisma.payment.findMany({
+  const allPayments = await client.payment.findMany({
     where: { status: "PAID" },
     orderBy: { createdAt: "desc" },
   });

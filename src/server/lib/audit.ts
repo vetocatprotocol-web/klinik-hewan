@@ -1,4 +1,4 @@
-import prisma from "./prisma";
+import { prisma } from "./prisma";
 import { AuditAction } from "@prisma/client";
 
 interface AuditLogParams {
@@ -13,7 +13,8 @@ interface AuditLogParams {
 
 export async function createAuditLog(params: AuditLogParams) {
   try {
-    await prisma.auditLog.create({
+    const client = await prisma();
+    await client.auditLog.create({
       data: {
         userId: params.userId,
         action: params.action,

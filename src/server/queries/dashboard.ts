@@ -1,6 +1,7 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 
 export async function getDashboardStats() {
+  const client = await prisma();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -8,17 +9,17 @@ export async function getDashboardStats() {
 
   const [todayVisits, todayRevenue, pendingPayments, lowStockProducts] =
     await Promise.all([
-      prisma.visit.count({
+      client.visit.count({
         where: { visitDate: { gte: today, lt: tomorrow } },
       }),
-      prisma.payment.aggregate({
+      client.payment.aggregate({
         where: { createdAt: { gte: today, lt: tomorrow }, status: "PAID" },
         _sum: { amount: true },
       }),
-      prisma.invoice.count({
+      client.invoice.count({
         where: { status: { in: ["UNPAID", "PARTIAL"] } },
       }),
-      prisma.$queryRaw`SELECT COUNT(*)::int as count FROM products WHERE status = 'ACTIVE' AND current_stock <= reorder_point`.then(
+      client.$queryRaw`SELECT COUNT(*)::int as count FROM products WHERE status = 'ACTIVE' AND current_stock <= reorder_point`.then(
         (result: any) => result[0]?.count ?? 0
       ),
     ]);
@@ -32,7 +33,8 @@ export async function getDashboardStats() {
 }
 
 export async function getRecentTransactions() {
-  const recentVisits = await prisma.visit.findMany({
+  const client = await prisma();
+  const recentVisits = await client.visit.findMany({
     include: {
       customer: { select: { name: true } },
       pet: { select: { name: true } },
@@ -41,7 +43,7 @@ export async function getRecentTransactions() {
     take: 5,
   });
 
-  const recentPayments = await prisma.payment.findMany({
+  const recentPayments = await client.payment.findMany({
     include: { receiver: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take: 5,
@@ -51,14 +53,15 @@ export async function getRecentTransactions() {
 }
 
 export async function getPendingActions() {
+  const client = await prisma();
   const [unpaidInvoices, incompleteVisits, lowStockProducts] = await Promise.all([
-    prisma.invoice.findMany({
+    client.invoice.findMany({
       where: { status: { in: ["UNPAID", "PARTIAL"] } },
       include: { customer: { select: { name: true } } },
       orderBy: { invoiceDate: "asc" },
       take: 5,
     }),
-    prisma.visit.findMany({
+    client.visit.findMany({
       where: { status: "DRAFT" },
       include: {
         customer: { select: { name: true } },
@@ -67,7 +70,7 @@ export async function getPendingActions() {
       orderBy: { createdAt: "asc" },
       take: 5,
     }),
-    prisma.product.findMany({
+    client.product.findMany({
       where: { status: "ACTIVE" },
       select: { id: true, name: true, currentStock: true, reorderPoint: true },
     }).then((products) => products.filter((p) => p.currentStock < p.reorderPoint).slice(0, 5)),
@@ -77,6 +80,7 @@ export async function getPendingActions() {
 }
 
 export async function getVisitChart7Days() {
+  const client = await prisma();
   const days: { label: string; value: number }[] = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
@@ -84,7 +88,7 @@ export async function getVisitChart7Days() {
     const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-    const count = await prisma.visit.count({
+    const count = await client.visit.count({
       where: { visitDate: { gte: startOfDay, lt: endOfDay } },
     });
 
@@ -95,6 +99,7 @@ export async function getVisitChart7Days() {
 }
 
 export async function getRevenueChart30Days() {
+  const client = await prisma();
   const days: { label: string; value: number }[] = [];
   for (let i = 29; i >= 0; i--) {
     const date = new Date();
@@ -102,7 +107,7 @@ export async function getRevenueChart30Days() {
     const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
-    const result = await prisma.payment.aggregate({
+    const result = await client.payment.aggregate({
       where: { createdAt: { gte: startOfDay, lt: endOfDay }, status: "PAID" },
       _sum: { amount: true },
     });

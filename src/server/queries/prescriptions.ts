@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getPrescriptions({
@@ -10,6 +10,7 @@ export async function getPrescriptions({
   search?: string;
   customerId?: string;
 }) {
+  const client = await prisma();
   const where: any = {};
   if (search) {
     where.OR = [
@@ -20,7 +21,7 @@ export async function getPrescriptions({
   if (customerId) where.customerId = customerId;
 
   const [data, total] = await Promise.all([
-    prisma.prescription.findMany({
+    client.prescription.findMany({
       where,
       include: {
         customer: { select: { name: true } },
@@ -31,14 +32,15 @@ export async function getPrescriptions({
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.prescription.count({ where }),
+    client.prescription.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
 }
 
 export async function getPrescriptionById(id: string) {
-  return prisma.prescription.findUnique({
+  const client = await prisma();
+  return client.prescription.findUnique({
     where: { id },
     include: {
       customer: { select: { name: true, email: true, phone: true } },

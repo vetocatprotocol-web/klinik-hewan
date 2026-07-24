@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { customerSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
@@ -24,6 +24,7 @@ export async function createCustomer(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -54,7 +55,7 @@ export async function createCustomer(
   }
 
   // PRD 8.2.1: "Duplicate check based on exact name + phone combination"
-  const existing = await prisma.customer.findFirst({
+  const existing = await client.customer.findFirst({
     where: { 
       name: { equals: data.name, mode: "insensitive" },
       phone: data.phone 
@@ -68,7 +69,7 @@ export async function createCustomer(
   }
 
   // Also check phone uniqueness independently (DB constraint)
-  const phoneExists = await prisma.customer.findFirst({
+  const phoneExists = await client.customer.findFirst({
     where: { phone: data.phone },
   });
   if (phoneExists) {
@@ -78,7 +79,7 @@ export async function createCustomer(
     };
   }
 
-  const customer = await prisma.customer.create({
+  const customer = await client.customer.create({
     data: {
       name: data.name,
       phone: data.phone,
@@ -95,10 +96,10 @@ export async function createCustomer(
   if (data.email) {
     tempPassword = generateTempPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
-    const customerRole = await prisma.role.findFirst({ where: { name: "CUSTOMER" } });
+    const customerRole = await client.role.findFirst({ where: { name: "CUSTOMER" } });
 
     if (customerRole) {
-      const user = await prisma.user.create({
+      const user = await client.user.create({
         data: {
           name: data.name,
           email: data.email,
@@ -109,7 +110,7 @@ export async function createCustomer(
         },
       });
 
-      await prisma.customer.update({
+      await client.customer.update({
         where: { id: customer.id },
         data: { userId: user.id },
       });
@@ -151,7 +152,7 @@ export async function createCustomer(
   // PRD §18.1: Notify Owner when new customer is registered
   try {
     const { sendEmail, generateNewCustomerNotificationEmail } = await import("../lib/email");
-    const ownerUser = await prisma.user.findFirst({
+    const ownerUser = await client.user.findFirst({
       where: { role: { name: "OWNER" }, status: "ACTIVE" },
       select: { email: true },
     });
@@ -172,7 +173,7 @@ export async function createCustomer(
   // Notify owners about new customer registration
   try {
     const { createBulkNotifications } = await import("../lib/notifications");
-    const owners = await prisma.user.findMany({
+    const owners = await client.user.findMany({
       where: { role: { name: "OWNER" }, status: "ACTIVE" },
     });
     if (owners.length > 0) {
@@ -195,6 +196,7 @@ export async function updateCustomer(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -204,7 +206,7 @@ export async function updateCustomer(
   const role = (session.user as any).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR", "ADMIN"];
   if (!staffRoles.includes(role)) {
-    const customer = await prisma.customer.findUnique({ where: { id } });
+    const customer = await client.customer.findUnique({ where: { id } });
     if (!customer || customer.userId !== session.user.id) {
       return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
     }
@@ -230,7 +232,7 @@ export async function updateCustomer(
   }
 
   // PRD 8.2.1: "Duplicate check based on exact name + phone combination"
-  const existing = await prisma.customer.findFirst({
+  const existing = await client.customer.findFirst({
     where: { 
       name: { equals: data.name, mode: "insensitive" },
       phone: data.phone,
@@ -245,7 +247,7 @@ export async function updateCustomer(
   }
 
   // Also check phone uniqueness independently
-  const phoneExists = await prisma.customer.findFirst({
+  const phoneExists = await client.customer.findFirst({
     where: { phone: data.phone, id: { not: id } },
   });
   if (phoneExists) {
@@ -255,9 +257,9 @@ export async function updateCustomer(
     };
   }
 
-  const oldCustomer = await prisma.customer.findUnique({ where: { id } });
+  const oldCustomer = await client.customer.findUnique({ where: { id } });
 
-  await prisma.customer.update({
+  await client.customer.update({
     where: { id },
     data: {
       name: data.name,
@@ -287,6 +289,7 @@ export async function updateCustomer(
 }
 
 export async function archiveCustomer(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -297,7 +300,7 @@ export async function archiveCustomer(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Hanya Owner yang bisa mengarsipkan pelanggan", code: "FORBIDDEN" } };
   }
 
-  const customer = await prisma.customer.findUnique({
+  const customer = await client.customer.findUnique({
     where: { id },
     include: { visits: { where: { status: { in: ["DRAFT", "COMPLETED"] } } } },
   });
@@ -313,7 +316,7 @@ export async function archiveCustomer(id: string): Promise<ActionResult> {
     };
   }
 
-  await prisma.customer.update({
+  await client.customer.update({
     where: { id },
     data: { status: "INACTIVE" },
   });

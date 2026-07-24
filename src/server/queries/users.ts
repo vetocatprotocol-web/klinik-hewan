@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getUsers({
@@ -12,6 +12,7 @@ export async function getUsers({
   role?: string;
   status?: string;
 }) {
+  const client = await prisma();
   const where: any = {};
   if (search) {
     where.OR = [
@@ -23,19 +24,20 @@ export async function getUsers({
   if (status) where.status = status;
 
   const [data, total] = await Promise.all([
-    prisma.user.findMany({
+    client.user.findMany({
       where,
       include: { role: true },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.user.count({ where }),
+    client.user.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
 }
 
 export async function getRoles() {
-  return prisma.role.findMany({ orderBy: { name: "asc" } });
+  const client = await prisma();
+  return client.role.findMany({ orderBy: { name: "asc" } });
 }

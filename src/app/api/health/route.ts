@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/server/lib/prisma";
+import { prisma } from "@/server/lib/prisma";
 
 export async function GET() {
   const checks: Record<string, string> = {};
@@ -7,7 +7,8 @@ export async function GET() {
 
   // Database check
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    const client = await prisma();
+    await client.$queryRaw`SELECT 1`;
     checks.database = "connected";
   } catch {
     checks.database = "disconnected";
@@ -16,7 +17,8 @@ export async function GET() {
 
   // Prisma check
   try {
-    await prisma.$queryRaw`SELECT COUNT(*)::int as count FROM "Setting"`;
+    const client = await prisma();
+    await client.$queryRaw`SELECT COUNT(*)::int as count FROM "Setting"`;
     checks.prisma = "connected";
   } catch {
     checks.prisma = "error";

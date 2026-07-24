@@ -1,4 +1,4 @@
-import prisma from "./prisma";
+import { prisma } from "./prisma";
 
 interface NotificationParams {
   userId: string;
@@ -9,7 +9,8 @@ interface NotificationParams {
 
 export async function createNotification(params: NotificationParams) {
   try {
-    await prisma.notification.create({
+    const client = await prisma();
+    await client.notification.create({
       data: {
         userId: params.userId,
         title: params.title,
@@ -29,7 +30,8 @@ export async function createBulkNotifications(
   type?: string
 ) {
   try {
-    await prisma.notification.createMany({
+    const client = await prisma();
+    await client.notification.createMany({
       data: userIds.map((userId) => ({
         userId,
         title,
@@ -44,11 +46,12 @@ export async function createBulkNotifications(
 
 export async function checkLowStock(productId: string) {
   try {
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const client = await prisma();
+    const product = await client.product.findUnique({ where: { id: productId } });
     if (!product || product.status !== "ACTIVE") return;
     if (product.currentStock > product.reorderPoint) return;
 
-    const owners = await prisma.user.findMany({
+    const owners = await client.user.findMany({
       where: { role: { name: "OWNER" }, status: "ACTIVE" },
     });
     if (owners.length === 0) return;

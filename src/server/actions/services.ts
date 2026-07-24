@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { serviceSchema, drugSchema, productSchema, productCategorySchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
@@ -14,6 +14,7 @@ export async function createService(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -32,12 +33,12 @@ export async function createService(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.service.findFirst({ where: { name: data.name } });
+  const existing = await client.service.findFirst({ where: { name: data.name } });
   if (existing) {
     return { success: false, error: { message: "Nama layanan sudah ada", field: "name" } };
   }
 
-  const service = await prisma.service.create({ data: validated.data as any });
+  const service = await client.service.create({ data: validated.data as any });
 
   await createAuditLog({
     userId: session.user.id,
@@ -55,6 +56,7 @@ export async function updateService(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -73,17 +75,17 @@ export async function updateService(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.service.findFirst({ where: { name: data.name, id: { not: id } } });
+  const existing = await client.service.findFirst({ where: { name: data.name, id: { not: id } } });
   if (existing) {
     return { success: false, error: { message: "Nama layanan sudah ada", field: "name" } };
   }
 
-  const oldService = await prisma.service.findUnique({ where: { id } });
+  const oldService = await client.service.findUnique({ where: { id } });
   if (!oldService) {
     return { success: false, error: { message: "Layanan tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  await prisma.service.update({ where: { id }, data: validated.data as any });
+  await client.service.update({ where: { id }, data: validated.data as any });
 
   await createAuditLog({
     userId: session.user.id,
@@ -101,12 +103,13 @@ export async function updateService(
 }
 
 export async function archiveService(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const service = await prisma.service.findUnique({
+  const service = await client.service.findUnique({
     where: { id },
     include: {
       visitItems: { where: { visit: { status: { in: ["DRAFT", "COMPLETED"] } } }, take: 1 },
@@ -125,7 +128,7 @@ export async function archiveService(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Tidak bisa mengarsipkan layanan yang sedang digunakan dalam kunjungan aktif", code: "BUSINESS_RULE" } };
   }
 
-  await prisma.service.update({ where: { id }, data: { status: "ARCHIVED" } });
+  await client.service.update({ where: { id }, data: { status: "ARCHIVED" } });
 
   await createAuditLog({
     userId: session.user.id,
@@ -144,6 +147,7 @@ export async function createDrug(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -162,12 +166,12 @@ export async function createDrug(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.drug.findFirst({ where: { name: data.name } });
+  const existing = await client.drug.findFirst({ where: { name: data.name } });
   if (existing) {
     return { success: false, error: { message: "Nama obat sudah ada", field: "name" } };
   }
 
-  const drug = await prisma.drug.create({ data: validated.data as any });
+  const drug = await client.drug.create({ data: validated.data as any });
 
   await createAuditLog({
     userId: session.user.id,
@@ -185,6 +189,7 @@ export async function updateDrug(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -203,12 +208,12 @@ export async function updateDrug(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.drug.findFirst({ where: { name: data.name, id: { not: id } } });
+  const existing = await client.drug.findFirst({ where: { name: data.name, id: { not: id } } });
   if (existing) {
     return { success: false, error: { message: "Nama obat sudah ada", field: "name" } };
   }
 
-  const currentDrug = await prisma.drug.findUnique({ where: { id } });
+  const currentDrug = await client.drug.findUnique({ where: { id } });
   if (!currentDrug) {
     return { success: false, error: { message: "Obat tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -217,7 +222,7 @@ export async function updateDrug(
     return { success: false, error: { message: "Unit obat tidak dapat diubah setelah pembuatan", field: "unit" } };
   }
 
-  await prisma.drug.update({ where: { id }, data: validated.data as any });
+  await client.drug.update({ where: { id }, data: validated.data as any });
 
   await createAuditLog({
     userId: session.user.id,
@@ -234,12 +239,13 @@ export async function updateDrug(
 }
 
 export async function archiveDrug(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const drug = await prisma.drug.findUnique({
+  const drug = await client.drug.findUnique({
     where: { id },
     include: {
       visitItems: { where: { visit: { status: { in: ["DRAFT", "COMPLETED"] } } }, take: 1 },
@@ -259,7 +265,7 @@ export async function archiveDrug(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Tidak bisa mengarsipkan obat yang sedang digunakan dalam kunjungan atau resep aktif", code: "BUSINESS_RULE" } };
   }
 
-  await prisma.drug.update({ where: { id }, data: { status: "ARCHIVED" } });
+  await client.drug.update({ where: { id }, data: { status: "ARCHIVED" } });
 
   await createAuditLog({
     userId: session.user.id,
@@ -278,6 +284,7 @@ export async function createProduct(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -299,15 +306,15 @@ export async function createProduct(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.product.findFirst({ where: { name: data.name } });
+  const existing = await client.product.findFirst({ where: { name: data.name } });
   if (existing) {
     return { success: false, error: { message: "Nama produk sudah ada", field: "name" } };
   }
 
-  const product = await prisma.product.create({ data: validated.data });
+  const product = await client.product.create({ data: validated.data });
 
   if (data.currentStock > 0) {
-    await prisma.stockAdjustment.create({
+    await client.stockAdjustment.create({
       data: {
         productId: product.id,
         quantity: data.currentStock,
@@ -334,6 +341,7 @@ export async function updateProduct(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -355,17 +363,17 @@ export async function updateProduct(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.product.findFirst({ where: { name: data.name, id: { not: id } } });
+  const existing = await client.product.findFirst({ where: { name: data.name, id: { not: id } } });
   if (existing) {
     return { success: false, error: { message: "Nama produk sudah ada", field: "name" } };
   }
 
-  const oldProduct = await prisma.product.findUnique({ where: { id } });
+  const oldProduct = await client.product.findUnique({ where: { id } });
   if (!oldProduct) {
     return { success: false, error: { message: "Produk tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  await prisma.product.update({ where: { id }, data: validated.data });
+  await client.product.update({ where: { id }, data: validated.data });
 
   await createAuditLog({
     userId: session.user.id,
@@ -383,12 +391,13 @@ export async function updateProduct(
 }
 
 export async function archiveProduct(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const product = await prisma.product.findUnique({ where: { id } });
+  const product = await client.product.findUnique({ where: { id } });
 
   if (!product) {
     return { success: false, error: { message: "Produk tidak ditemukan", code: "NOT_FOUND" } };
@@ -402,7 +411,7 @@ export async function archiveProduct(id: string): Promise<ActionResult> {
     return { success: false, error: { message: `Tidak bisa mengarsipkan produk dengan stok ${product.currentStock}. Stok harus 0 terlebih dahulu.`, code: "BUSINESS_RULE" } };
   }
 
-  await prisma.product.update({ where: { id }, data: { status: "ARCHIVED" } });
+  await client.product.update({ where: { id }, data: { status: "ARCHIVED" } });
 
   await createAuditLog({
     userId: session.user.id,
@@ -421,6 +430,7 @@ export async function createProductCategory(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -437,12 +447,12 @@ export async function createProductCategory(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.productCategory.findFirst({ where: { name: data.name } });
+  const existing = await client.productCategory.findFirst({ where: { name: data.name } });
   if (existing) {
     return { success: false, error: { message: "Nama kategori sudah ada", field: "name" } };
   }
 
-  const category = await prisma.productCategory.create({ data: validated.data });
+  const category = await client.productCategory.create({ data: validated.data });
 
   await createAuditLog({
     userId: session.user.id,
@@ -460,6 +470,7 @@ export async function updateProductCategory(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -476,17 +487,17 @@ export async function updateProductCategory(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.productCategory.findFirst({ where: { name: data.name, id: { not: id } } });
+  const existing = await client.productCategory.findFirst({ where: { name: data.name, id: { not: id } } });
   if (existing) {
     return { success: false, error: { message: "Nama kategori sudah ada", field: "name" } };
   }
 
-  const oldCategory = await prisma.productCategory.findUnique({ where: { id } });
+  const oldCategory = await client.productCategory.findUnique({ where: { id } });
   if (!oldCategory) {
     return { success: false, error: { message: "Kategori tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  await prisma.productCategory.update({ where: { id }, data: validated.data });
+  await client.productCategory.update({ where: { id }, data: validated.data });
 
   await createAuditLog({
     userId: session.user.id,
@@ -500,12 +511,13 @@ export async function updateProductCategory(
 }
 
 export async function archiveProductCategory(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const category = await prisma.productCategory.findUnique({
+  const category = await client.productCategory.findUnique({
     where: { id },
     include: { products: { where: { status: "ACTIVE" } } },
   });
@@ -522,7 +534,7 @@ export async function archiveProductCategory(id: string): Promise<ActionResult> 
     return { success: false, error: { message: `Tidak bisa mengarsipkan kategori dengan ${category.products.length} produk aktif. Arsipkan produk terlebih dahulu.`, code: "BUSINESS_RULE" } };
   }
 
-  await prisma.productCategory.update({ where: { id }, data: { status: "ARCHIVED" } });
+  await client.productCategory.update({ where: { id }, data: { status: "ARCHIVED" } });
 
   await createAuditLog({
     userId: session.user.id,

@@ -1,4 +1,4 @@
-import prisma from "@/server/lib/prisma";
+import { prisma } from "@/server/lib/prisma";
 
 export interface TaxConfig {
   type: "FLAT" | "PERCENTAGE";
@@ -7,7 +7,8 @@ export interface TaxConfig {
 }
 
 export async function getTaxConfig(): Promise<TaxConfig> {
-  const setting = await prisma.setting.findUnique({
+  const client = await prisma();
+  const setting = await client.setting.findUnique({
     where: { key: "tax_config" },
   });
 

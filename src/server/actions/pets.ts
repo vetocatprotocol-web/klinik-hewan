@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { petSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
@@ -11,6 +11,7 @@ export async function createPet(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -36,7 +37,7 @@ export async function createPet(
   }
 
   // Verify customer exists
-  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  const customer = await client.customer.findUnique({ where: { id: customerId } });
   if (!customer) {
     return { success: false, error: { message: "Pelanggan tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -51,7 +52,7 @@ export async function createPet(
     }
   }
 
-  const pet = await prisma.pet.create({
+  const pet = await client.pet.create({
     data: {
       customerId,
       name: data.name,
@@ -84,6 +85,7 @@ export async function updatePet(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -108,7 +110,7 @@ export async function updatePet(
     };
   }
 
-  const pet = await prisma.pet.findUnique({ where: { id } });
+  const pet = await client.pet.findUnique({ where: { id } });
   if (!pet) {
     return { success: false, error: { message: "Hewan tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -121,15 +123,15 @@ export async function updatePet(
   const role = (session.user as any).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
-    const customer = await prisma.customer.findUnique({ where: { id: pet.customerId } });
+    const customer = await client.customer.findUnique({ where: { id: pet.customerId } });
     if (!customer || customer.userId !== session.user.id) {
       return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
     }
   }
 
-  const oldPet = await prisma.pet.findUnique({ where: { id } });
+  const oldPet = await client.pet.findUnique({ where: { id } });
 
-  await prisma.pet.update({
+  await client.pet.update({
     where: { id },
     data: {
       name: data.name,
@@ -159,12 +161,13 @@ export async function updatePet(
 }
 
 export async function archivePet(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const pet = await prisma.pet.findUnique({ where: { id } });
+  const pet = await client.pet.findUnique({ where: { id } });
   if (!pet) {
     return { success: false, error: { message: "Hewan tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -173,13 +176,13 @@ export async function archivePet(id: string): Promise<ActionResult> {
   const role = (session.user as any).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
-    const customer = await prisma.customer.findUnique({ where: { id: pet.customerId } });
+    const customer = await client.customer.findUnique({ where: { id: pet.customerId } });
     if (!customer || customer.userId !== session.user.id) {
       return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
     }
   }
 
-  await prisma.pet.update({
+  await client.pet.update({
     where: { id },
     data: { status: "ARCHIVED" },
   });

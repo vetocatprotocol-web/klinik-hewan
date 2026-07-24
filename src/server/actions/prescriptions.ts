@@ -1,11 +1,12 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 
 export async function getPrescriptions({ page = 1, search = "" }: { page?: number; search?: string }) {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
@@ -18,7 +19,7 @@ export async function getPrescriptions({ page = 1, search = "" }: { page?: numbe
 
   const PAGE_SIZE = 20;
   const [data, total] = await Promise.all([
-    prisma.prescription.findMany({
+    client.prescription.findMany({
       where,
       include: {
         customer: { select: { name: true } },
@@ -29,17 +30,18 @@ export async function getPrescriptions({ page = 1, search = "" }: { page?: numbe
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.prescription.count({ where }),
+    client.prescription.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
 }
 
 export async function getPrescriptionById(id: string) {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  return prisma.prescription.findUnique({
+  return client.prescription.findUnique({
     where: { id },
     include: {
       customer: { select: { name: true, email: true, phone: true } },
@@ -54,6 +56,7 @@ export async function updatePrescriptionStatus(
   id: string,
   status: "COMPLETED" | "CANCELLED"
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -64,12 +67,12 @@ export async function updatePrescriptionStatus(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const prescription = await prisma.prescription.findUnique({ where: { id } });
+  const prescription = await client.prescription.findUnique({ where: { id } });
   if (!prescription) {
     return { success: false, error: { message: "Resep tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  await prisma.prescription.update({
+  await client.prescription.update({
     where: { id },
     data: { status },
   });

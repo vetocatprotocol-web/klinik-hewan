@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { visitSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { generateVisitNumber, generateInvoiceNumber, generatePrescriptionNumber } from "@/lib/utils";
@@ -12,6 +12,7 @@ export async function createVisit(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -61,8 +62,8 @@ export async function createVisit(
 
   // Validate customer and pet exist
   const [customer, pet] = await Promise.all([
-    prisma.customer.findUnique({ where: { id: data.customerId }, select: { id: true, status: true } }),
-    prisma.pet.findUnique({ where: { id: data.petId }, select: { id: true, customerId: true, status: true } }),
+    client.customer.findUnique({ where: { id: data.customerId }, select: { id: true, status: true } }),
+    client.pet.findUnique({ where: { id: data.petId }, select: { id: true, customerId: true, status: true } }),
   ]);
 
   if (!customer) {
@@ -86,8 +87,8 @@ export async function createVisit(
   const drugIds = drugs.map((d: any) => d.drugId);
 
   const [masterServices, masterDrugs] = await Promise.all([
-    prisma.service.findMany({ where: { id: { in: serviceIds }, status: "ACTIVE" } }),
-    prisma.drug.findMany({ where: { id: { in: drugIds }, status: "ACTIVE" } }),
+    client.service.findMany({ where: { id: { in: serviceIds }, status: "ACTIVE" } }),
+    client.drug.findMany({ where: { id: { in: drugIds }, status: "ACTIVE" } }),
   ]);
 
   const serviceMap = new Map(masterServices.map((s) => [s.id, s]));
@@ -96,7 +97,7 @@ export async function createVisit(
   const now = new Date();
   const visitNumber = generateVisitNumber(now);
 
-  const visit = await prisma.visit.create({
+  const visit = await client.visit.create({
     data: {
       visitNumber,
       customerId: data.customerId,
@@ -153,6 +154,7 @@ export async function createVisit(
 }
 
 export async function completeVisit(id: string): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -163,7 +165,7 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
     return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa menyelesaikan kunjungan", code: "FORBIDDEN" } };
   }
 
-  const visit = await prisma.visit.findUnique({
+  const visit = await client.visit.findUnique({
     where: { id },
     include: {
       visitItems: true,
@@ -190,7 +192,7 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
   const subtotal = visit.visitItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
   // Get tax config
-  const taxSetting = await prisma.setting.findUnique({ where: { key: "tax_config" } });
+  const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
   const taxConfig = taxSetting?.value as any;
   let taxAmount = 0;
   if (taxConfig?.enabled) {
@@ -207,15 +209,15 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
   const serviceIds = visit.visitItems.filter(i => i.serviceId).map(i => i.serviceId!);
   const drugIds = visit.visitItems.filter(i => i.drugId).map(i => i.drugId!);
   const [masterServices, masterDrugs] = await Promise.all([
-    prisma.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } }),
-    prisma.drug.findMany({ where: { id: { in: drugIds } }, select: { id: true, name: true } }),
+    client.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } }),
+    client.drug.findMany({ where: { id: { in: drugIds } }, select: { id: true, name: true } }),
   ]);
 
   // Create invoice + prescription + status update in a single transaction
   const invoiceNumber = generateInvoiceNumber(now);
   let prescriptionNumber: string | null = null;
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await client.$transaction(async (tx) => {
     const dueDate = new Date(now);
     dueDate.setDate(dueDate.getDate() + 30);
 
@@ -347,6 +349,7 @@ export async function updateVisit(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -357,7 +360,7 @@ export async function updateVisit(
     return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa mengubah kunjungan", code: "FORBIDDEN" } };
   }
 
-  const existingVisit = await prisma.visit.findUnique({ where: { id } });
+  const existingVisit = await client.visit.findUnique({ where: { id } });
   if (!existingVisit) {
     return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -406,16 +409,16 @@ export async function updateVisit(
   const drugIds = drugs.map((d: any) => d.drugId);
 
   const [masterServices, masterDrugs] = await Promise.all([
-    prisma.service.findMany({ where: { id: { in: serviceIds }, status: "ACTIVE" } }),
-    prisma.drug.findMany({ where: { id: { in: drugIds }, status: "ACTIVE" } }),
+    client.service.findMany({ where: { id: { in: serviceIds }, status: "ACTIVE" } }),
+    client.drug.findMany({ where: { id: { in: drugIds }, status: "ACTIVE" } }),
   ]);
 
   const serviceMap = new Map(masterServices.map((s) => [s.id, s]));
   const drugMap = new Map(masterDrugs.map((d) => [d.id, d]));
 
-  await prisma.visitItem.deleteMany({ where: { visitId: id } });
+  await client.visitItem.deleteMany({ where: { visitId: id } });
 
-  await prisma.visit.update({
+  await client.visit.update({
     where: { id },
     data: {
       customerId: data.customerId,
@@ -474,6 +477,7 @@ export async function addVisitItem(
   itemId: string,
   quantity: number
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -484,7 +488,7 @@ export async function addVisitItem(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+  const visit = await client.visit.findUnique({ where: { id: visitId } });
   if (!visit) {
     return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -494,20 +498,20 @@ export async function addVisitItem(
 
   let unitPrice = 0;
   if (itemType === "SERVICE") {
-    const service = await prisma.service.findUnique({ where: { id: itemId } });
+    const service = await client.service.findUnique({ where: { id: itemId } });
     if (!service || service.status !== "ACTIVE") {
       return { success: false, error: { message: "Layanan tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
     }
     unitPrice = Number(service.price);
   } else {
-    const drug = await prisma.drug.findUnique({ where: { id: itemId } });
+    const drug = await client.drug.findUnique({ where: { id: itemId } });
     if (!drug || drug.status !== "ACTIVE") {
       return { success: false, error: { message: "Obat tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
     }
     unitPrice = Number(drug.pricePerUnit);
   }
 
-  const item = await prisma.visitItem.create({
+  const item = await client.visitItem.create({
     data: {
       visitId,
       itemType,
@@ -534,6 +538,7 @@ export async function removeVisitItem(
   visitId: string,
   itemId: string
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -544,7 +549,7 @@ export async function removeVisitItem(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+  const visit = await client.visit.findUnique({ where: { id: visitId } });
   if (!visit) {
     return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -552,14 +557,14 @@ export async function removeVisitItem(
     return { success: false, error: { message: "Hanya kunjungan DRAFT yang bisa dihapus itemnya", code: "BUSINESS_RULE" } };
   }
 
-  const item = await prisma.visitItem.findFirst({
+  const item = await client.visitItem.findFirst({
     where: { id: itemId, visitId },
   });
   if (!item) {
     return { success: false, error: { message: "Item tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  await prisma.visitItem.delete({ where: { id: itemId } });
+  await client.visitItem.delete({ where: { id: itemId } });
 
   await createAuditLog({
     userId: session.user.id,
@@ -572,6 +577,7 @@ export async function removeVisitItem(
 }
 
 export async function downloadVisitNotesPdf(visitId: string): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -582,7 +588,7 @@ export async function downloadVisitNotesPdf(visitId: string): Promise<ActionResu
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+  const visit = await client.visit.findUnique({ where: { id: visitId } });
   if (!visit) {
     return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
   }

@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getVisits({
@@ -18,6 +18,7 @@ export async function getVisits({
   dateFrom?: string;
   dateTo?: string;
 }) {
+  const client = await prisma();
   const where: any = {};
 
   if (search) {
@@ -38,7 +39,7 @@ export async function getVisits({
   }
 
   const [data, total] = await Promise.all([
-    prisma.visit.findMany({
+    client.visit.findMany({
       where,
       include: {
         customer: { select: { id: true, name: true, phone: true } },
@@ -50,7 +51,7 @@ export async function getVisits({
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.visit.count({ where }),
+    client.visit.count({ where }),
   ]);
 
   return {
@@ -63,7 +64,8 @@ export async function getVisits({
 }
 
 export async function getVisitById(id: string) {
-  return prisma.visit.findUnique({
+  const client = await prisma();
+  return client.visit.findUnique({
     where: { id },
     include: {
       customer: true,

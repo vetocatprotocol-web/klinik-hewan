@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { paymentSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { generatePaymentNumber } from "@/lib/utils";
@@ -13,6 +13,7 @@ export async function processPayment(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -35,7 +36,7 @@ export async function processPayment(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await client.invoice.findUnique({
     where: { id: data.invoiceId },
     include: { customer: { select: { id: true, name: true, email: true, userId: true } } },
   });
@@ -59,7 +60,7 @@ export async function processPayment(
   const newStatus = newPaidAmount >= Number(invoice.total) ? "PAID" : "PARTIAL";
   const userId = session.user.id!;
 
-  await prisma.$transaction(async (tx) => {
+  await client.$transaction(async (tx) => {
     await tx.payment.create({
       data: {
         paymentNumber,
@@ -129,6 +130,7 @@ export async function processPayment(
 }
 
 export async function getPayments({ page = 1, search = "" }: { page?: number; search?: string }) {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
@@ -141,14 +143,14 @@ export async function getPayments({ page = 1, search = "" }: { page?: number; se
 
   const PAGE_SIZE = 20;
   const [data, total] = await Promise.all([
-    prisma.payment.findMany({
+    client.payment.findMany({
       where,
       include: { receiver: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.payment.count({ where }),
+    client.payment.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };

@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getCustomers({
@@ -10,6 +10,7 @@ export async function getCustomers({
   search?: string;
   status?: string;
 }) {
+  const client = await prisma();
   const where: any = {};
 
   if (search) {
@@ -25,7 +26,7 @@ export async function getCustomers({
   }
 
   const [data, total] = await Promise.all([
-    prisma.customer.findMany({
+    client.customer.findMany({
       where,
       include: {
         pets: { where: { status: "ACTIVE" } },
@@ -35,7 +36,7 @@ export async function getCustomers({
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.customer.count({ where }),
+    client.customer.count({ where }),
   ]);
 
   return {
@@ -48,7 +49,8 @@ export async function getCustomers({
 }
 
 export async function getCustomerById(id: string) {
-  return prisma.customer.findUnique({
+  const client = await prisma();
+  return client.customer.findUnique({
     where: { id },
     include: {
       pets: { where: { status: "ACTIVE" } },
@@ -58,7 +60,8 @@ export async function getCustomerById(id: string) {
 }
 
 export async function searchCustomers(query: string) {
-  return prisma.customer.findMany({
+  const client = await prisma();
+  return client.customer.findMany({
     where: {
       OR: [
         { name: { contains: query, mode: "insensitive" } },

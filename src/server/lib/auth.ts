@@ -1,13 +1,13 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { prisma } from "./prisma";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 30;
 
-async function getPrisma() {
-  const { default: prisma } = await import("./prisma");
-  return prisma;
+async function getPrismaClient() {
+  return prisma();
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -20,9 +20,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const prisma = await getPrisma();
+        const client = await getPrismaClient();
 
-        const user = await prisma.user.findUnique({
+        const user = await client.user.findUnique({
           where: { email: credentials.email as string },
           include: { role: true },
         });
@@ -35,7 +35,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         if (user.lockedUntil && user.lockedUntil <= new Date()) {
-          await prisma.user.update({
+          await client.user.update({
             where: { id: user.id },
             data: { failedLoginAttempts: 0, lockedUntil: null },
           });
@@ -54,7 +54,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
           }
 
-          await prisma.user.update({
+          await client.user.update({
             where: { id: user.id },
             data: updateData,
           });
@@ -67,7 +67,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new Error(`Email atau password salah. Sisa percobaan: ${remaining}`);
         }
 
-        await prisma.user.update({
+        await client.user.update({
           where: { id: user.id },
           data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
         });

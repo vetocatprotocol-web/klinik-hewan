@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { companyInfoSchema, taxConfigSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
@@ -10,6 +10,7 @@ export async function updateCompanyInfo(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -31,7 +32,7 @@ export async function updateCompanyInfo(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  await prisma.setting.upsert({
+  await client.setting.upsert({
     where: { key: "company_info" },
     update: { value: data },
     create: { key: "company_info", value: data },
@@ -51,6 +52,7 @@ export async function updateTaxConfig(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -68,7 +70,7 @@ export async function updateTaxConfig(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  await prisma.setting.upsert({
+  await client.setting.upsert({
     where: { key: "tax_config" },
     update: { value: data },
     create: { key: "tax_config", value: data },
@@ -88,6 +90,7 @@ export async function updatePaymentMethods(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -105,7 +108,7 @@ export async function updatePaymentMethods(
     return { success: false, error: { message: "Minimal 1 metode pembayaran harus aktif", code: "BUSINESS_RULE" } };
   }
 
-  await prisma.setting.upsert({
+  await client.setting.upsert({
     where: { key: "payment_methods" },
     update: { value: methods },
     create: { key: "payment_methods", value: methods },
@@ -125,6 +128,7 @@ export async function updateNumberingFormat(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -139,7 +143,7 @@ export async function updateNumberingFormat(
     prescriptionPrefix: formData.get("prescriptionPrefix") as string || "RX",
   };
 
-  await prisma.setting.upsert({
+  await client.setting.upsert({
     where: { key: "numbering_format" },
     update: { value: data },
     create: { key: "numbering_format", value: data },

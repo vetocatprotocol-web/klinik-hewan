@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { userSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
@@ -11,6 +11,7 @@ export async function createUser(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -30,7 +31,7 @@ export async function createUser(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.user.findFirst({ where: { email: data.email } });
+  const existing = await client.user.findFirst({ where: { email: data.email } });
   if (existing) {
     return { success: false, error: { message: "Email sudah terdaftar", field: "email" } };
   }
@@ -38,7 +39,7 @@ export async function createUser(
   const password = data.password || Math.random().toString(36).slice(-8);
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  const user = await prisma.user.create({
+  const user = await client.user.create({
     data: {
       name: data.name,
       email: data.email,
@@ -64,6 +65,7 @@ export async function updateUser(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -82,12 +84,12 @@ export async function updateUser(
     return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
   }
 
-  const existing = await prisma.user.findFirst({ where: { email: data.email, id: { not: id } } });
+  const existing = await client.user.findFirst({ where: { email: data.email, id: { not: id } } });
   if (existing) {
     return { success: false, error: { message: "Email sudah terdaftar", field: "email" } };
   }
 
-  await prisma.user.update({
+  await client.user.update({
     where: { id },
     data: {
       name: data.name,
@@ -108,6 +110,7 @@ export async function updateUser(
 }
 
 export async function disableUser(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -117,7 +120,7 @@ export async function disableUser(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Tidak bisa menonaktifkan akun sendiri", code: "BUSINESS_RULE" } };
   }
 
-  await prisma.user.update({
+  await client.user.update({
     where: { id },
     data: { status: "INACTIVE" },
   });
@@ -134,12 +137,13 @@ export async function disableUser(id: string): Promise<ActionResult> {
 }
 
 export async function enableUser(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  await prisma.user.update({
+  await client.user.update({
     where: { id },
     data: { status: "ACTIVE" },
   });
@@ -156,6 +160,7 @@ export async function enableUser(id: string): Promise<ActionResult> {
 }
 
 export async function resetUserPassword(id: string): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user || (session.user as any).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
@@ -164,7 +169,7 @@ export async function resetUserPassword(id: string): Promise<ActionResult<string
   const tempPassword = Math.random().toString(36).slice(-8);
   const hashedPassword = await bcrypt.hash(tempPassword, 12);
 
-  await prisma.user.update({
+  await client.user.update({
     where: { id },
     data: { password: hashedPassword },
   });
@@ -184,12 +189,13 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const user = await client.user.findUnique({ where: { id: session.user.id } });
   if (!user) {
     return { success: false, error: { message: "User tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -200,7 +206,7 @@ export async function changePassword(
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 12);
-  await prisma.user.update({
+  await client.user.update({
     where: { id: session.user.id },
     data: { password: hashedPassword },
   });

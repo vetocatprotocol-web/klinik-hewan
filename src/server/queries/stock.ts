@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getStockAdjustments({
@@ -8,11 +8,12 @@ export async function getStockAdjustments({
   page?: number;
   productId?: string;
 }) {
+  const client = await prisma();
   const where: any = {};
   if (productId) where.productId = productId;
 
   const [data, total] = await Promise.all([
-    prisma.stockAdjustment.findMany({
+    client.stockAdjustment.findMany({
       where,
       include: {
         product: { select: { id: true, name: true } },
@@ -22,7 +23,7 @@ export async function getStockAdjustments({
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.stockAdjustment.count({ where }),
+    client.stockAdjustment.count({ where }),
   ]);
 
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };

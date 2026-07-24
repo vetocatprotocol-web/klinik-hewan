@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import prisma from "../lib/prisma";
+import { prisma } from "../lib/prisma";
 import { billingSchema, billingItemSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { generateBillingNumber, generateInvoiceNumber } from "@/lib/utils";
@@ -14,6 +14,7 @@ export async function createBilling(
   _prevState: any,
   formData: FormData
 ): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -38,7 +39,7 @@ export async function createBilling(
 
   const billingNumber = generateBillingNumber(new Date());
 
-  const billing = await prisma.billing.create({
+  const billing = await client.billing.create({
     data: {
       billingNumber,
       customerId: data.customerId,
@@ -68,6 +69,7 @@ export async function addBillingItem(
   quantity: number,
   notes?: string
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -78,7 +80,7 @@ export async function addBillingItem(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const billing = await prisma.billing.findUnique({ where: { id: billingId } });
+  const billing = await client.billing.findUnique({ where: { id: billingId } });
   if (!billing) {
     return { success: false, error: { message: "Billing tidak ditemukan", code: "NOT_FOUND" } };
   }
@@ -91,21 +93,21 @@ export async function addBillingItem(
   let unitPrice = 0;
   let itemName = "";
   if (itemType === "SERVICE") {
-    const service = await prisma.service.findUnique({ where: { id: itemId } });
+    const service = await client.service.findUnique({ where: { id: itemId } });
     if (!service || service.status !== "ACTIVE") {
       return { success: false, error: { message: "Layanan tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
     }
     unitPrice = Number(service.price);
     itemName = service.name;
   } else if (itemType === "DRUG") {
-    const drug = await prisma.drug.findUnique({ where: { id: itemId } });
+    const drug = await client.drug.findUnique({ where: { id: itemId } });
     if (!drug || drug.status !== "ACTIVE") {
       return { success: false, error: { message: "Obat tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
     }
     unitPrice = Number(drug.pricePerUnit);
     itemName = drug.name;
   } else if (itemType === "PRODUCT") {
-    const product = await prisma.product.findUnique({ where: { id: itemId } });
+    const product = await client.product.findUnique({ where: { id: itemId } });
     if (!product || product.status !== "ACTIVE") {
       return { success: false, error: { message: "Produk tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
     }
@@ -118,7 +120,7 @@ export async function addBillingItem(
     const stockUserId = session.user.id!;
 
     // Deduct stock for PRODUCT items in a transaction to prevent race conditions
-    await prisma.$transaction(async (tx) => {
+    await client.$transaction(async (tx) => {
       const freshProduct = await tx.product.findUnique({ where: { id: itemId } });
       if (!freshProduct || freshProduct.currentStock < quantity) {
         throw new Error(`Stok ${itemName} tidak mencukupi`);
@@ -145,7 +147,7 @@ export async function addBillingItem(
 
   const subtotal = unitPrice * quantity;
 
-  await prisma.billingItem.create({
+  await client.billingItem.create({
     data: {
       billingId,
       itemType: itemType as any,
@@ -174,6 +176,7 @@ export async function removeBillingItem(
   billingId: string,
   itemId: string
 ): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -184,25 +187,25 @@ export async function removeBillingItem(
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const billing = await prisma.billing.findUnique({ where: { id: billingId } });
+  const billing = await client.billing.findUnique({ where: { id: billingId } });
   if (!billing || billing.status !== "OPEN") {
     return { success: false, error: { message: "Hanya billing OPEN yang bisa dihapus itemnya", code: "BUSINESS_RULE" } };
   }
 
   // Verify item belongs to this billing
-  const billingItem = await prisma.billingItem.findUnique({ where: { id: itemId } });
+  const billingItem = await client.billingItem.findUnique({ where: { id: itemId } });
   if (!billingItem || billingItem.billingId !== billingId) {
     return { success: false, error: { message: "Item tidak ditemukan dalam billing ini", code: "NOT_FOUND" } };
   }
 
   // Restore stock if the item is a PRODUCT
   if (billingItem.productId) {
-    await prisma.product.update({
+    await client.product.update({
       where: { id: billingItem.productId },
       data: { currentStock: { increment: billingItem.quantity } },
     });
 
-    await prisma.stockAdjustment.create({
+    await client.stockAdjustment.create({
       data: {
         productId: billingItem.productId,
         quantity: billingItem.quantity,
@@ -214,7 +217,7 @@ export async function removeBillingItem(
     });
   }
 
-  await prisma.billingItem.delete({ where: { id: itemId } });
+  await client.billingItem.delete({ where: { id: itemId } });
 
   await createAuditLog({
     userId: session.user.id,
@@ -228,6 +231,7 @@ export async function removeBillingItem(
 }
 
 export async function completeBilling(id: string): Promise<ActionResult<string>> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -238,7 +242,7 @@ export async function completeBilling(id: string): Promise<ActionResult<string>>
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const billing = await prisma.billing.findUnique({
+  const billing = await client.billing.findUnique({
     where: { id },
     include: {
       billingItems: {
@@ -264,7 +268,7 @@ export async function completeBilling(id: string): Promise<ActionResult<string>>
   const now = new Date();
   const subtotal = billing.billingItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
-  const taxSetting = await prisma.setting.findUnique({ where: { key: "tax_config" } });
+  const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
   const taxConfig = taxSetting?.value as any;
   let taxAmount = 0;
   if (taxConfig?.enabled) {
@@ -279,7 +283,7 @@ export async function completeBilling(id: string): Promise<ActionResult<string>>
   const invoiceNumber = generateInvoiceNumber(now);
 
   // Create invoice + update billing status in transaction
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await client.$transaction(async (tx) => {
     const invoice = await tx.invoice.create({
       data: {
         invoiceNumber,
@@ -366,6 +370,7 @@ export async function completeBilling(id: string): Promise<ActionResult<string>>
 }
 
 export async function reopenBilling(id: string): Promise<ActionResult> {
+  const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
@@ -376,7 +381,7 @@ export async function reopenBilling(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Hanya Owner yang bisa membuka kembali billing", code: "FORBIDDEN" } };
   }
 
-  const billing = await prisma.billing.findUnique({ where: { id } });
+  const billing = await client.billing.findUnique({ where: { id } });
 
   if (!billing) {
     return { success: false, error: { message: "Billing tidak ditemukan", code: "NOT_FOUND" } };
@@ -386,12 +391,12 @@ export async function reopenBilling(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Hanya billing COMPLETED yang bisa dibuka kembali", code: "BUSINESS_RULE" } };
   }
 
-  const invoice = await prisma.invoice.findFirst({
+  const invoice = await client.invoice.findFirst({
     where: { sourceType: "BILLING", sourceId: id },
   });
 
   if (invoice) {
-    const paidCount = await prisma.payment.count({
+    const paidCount = await client.payment.count({
       where: { payableType: "Invoice", payableId: invoice.id, status: "PAID" },
     });
     if (paidCount > 0) {
@@ -399,7 +404,7 @@ export async function reopenBilling(id: string): Promise<ActionResult> {
     }
   }
 
-  await prisma.$transaction(async (tx) => {
+  await client.$transaction(async (tx) => {
     if (invoice) {
       await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
       await tx.invoice.delete({ where: { id: invoice.id } });
