@@ -1,84 +1,10 @@
 "use server";
 
 import { auth } from "../lib/auth";
-import { loginSchema } from "@/lib/validators";
-import { signIn, signOut } from "../lib/auth";
+import { signOut } from "../lib/auth";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
-
-export async function login(
-  _prevState: any,
-  formData: FormData
-): Promise<ActionResult> {
-  const client = await prisma();
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-
-  const validated = loginSchema.safeParse({ email, password });
-  if (!validated.success) {
-    return {
-      success: false,
-      error: { message: "Email dan password harus diisi", field: "email" },
-    };
-  }
-
-  // Check if account is locked before attempting signIn
-  const user = await client.user.findUnique({
-    where: { email },
-    include: { role: true },
-  });
-
-  if (user && user.lockedUntil && user.lockedUntil > new Date()) {
-    const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
-    return {
-      success: false,
-      error: { message: `Akun terkunci karena terlalu banyak percobaan gagal. Coba lagi dalam ${minutesLeft} menit.` },
-    };
-  }
-
-  // If lockout has expired, reset the counter
-  if (user && user.lockedUntil && user.lockedUntil <= new Date()) {
-    await client.user.update({
-      where: { id: user.id },
-      data: { failedLoginAttempts: 0, lockedUntil: null },
-    });
-  }
-
-  try {
-    const staffRoles = ["OWNER", "DOKTER", "KASIR", "ADMIN"];
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: staffRoles.includes(user?.role?.name || "") ? "/dashboard" : "/portal/dashboard",
-    });
-
-    return { success: true, data: undefined };
-  } catch (error: any) {
-    if (error?.type === "CredentialsSignin") {
-      // Increment failed login attempts
-      if (user) {
-        const newAttempts = user.failedLoginAttempts + 1;
-        const updateData: any = { failedLoginAttempts: newAttempts };
-        if (newAttempts >= 5) {
-          updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
-        }
-        await client.user.update({ where: { id: user.id }, data: updateData });
-      }
-      return {
-        success: false,
-        error: { message: "Email atau password salah" },
-      };
-    }
-    if (error?.message?.includes("NEXT_REDIRECT")) {
-      throw error;
-    }
-    return {
-      success: false,
-      error: { message: "Terjadi kesalahan. Silakan coba lagi." },
-    };
-  }
-}
 
 export async function logout() {
   await signOut({ redirectTo: "/login" });
