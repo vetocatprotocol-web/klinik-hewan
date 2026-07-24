@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, PawPrint } from "lucide-react";
@@ -19,10 +19,22 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      const redirectTimer = window.setTimeout(() => {
+        router.replace("/dashboard");
+        router.refresh();
+      }, 100);
+
+      return () => window.clearTimeout(redirectTimer);
+    }
+  }, [router, session, status]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,8 +55,6 @@ export default function LoginPage() {
       }
 
       setIsPending(false);
-      router.replace("/dashboard");
-      router.refresh();
     } catch {
       setError("Terjadi kesalahan. Silakan coba lagi.");
       setIsPending(false);
