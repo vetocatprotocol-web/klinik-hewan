@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, PawPrint } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,23 +17,17 @@ import {
 } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
-    if (status === "authenticated" && session) {
-      const redirectTimer = window.setTimeout(() => {
-        router.replace("/dashboard");
-        router.refresh();
-      }, 100);
-
-      return () => window.clearTimeout(redirectTimer);
+    if (status === "authenticated") {
+      window.location.href = "/dashboard";
     }
-  }, [router, session, status]);
+  }, [status]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,7 +47,9 @@ export default function LoginPage() {
         return;
       }
 
-      setIsPending(false);
+      // Login succeeded — redirect immediately.
+      // Don't wait for useSession to update; the cookie is already set.
+      window.location.href = "/dashboard";
     } catch {
       setError("Terjadi kesalahan. Silakan coba lagi.");
       setIsPending(false);
