@@ -18,7 +18,7 @@ export async function GET() {
   // Prisma check
   try {
     const client = await prisma();
-    await client.$queryRaw`SELECT COUNT(*)::int as count FROM "Setting"`;
+    await client.$queryRaw`SELECT COUNT(*)::int as count FROM "settings"`;
     checks.prisma = "connected";
   } catch {
     checks.prisma = "error";
