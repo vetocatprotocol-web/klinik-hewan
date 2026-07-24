@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/server/lib/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/server/lib/auth.config";
+
+const { auth } = NextAuth(authConfig);
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
