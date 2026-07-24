@@ -14,6 +14,15 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+export function formatCurrencyDecimal(amount: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("id-ID", {
@@ -43,70 +52,47 @@ export function formatShortDate(date: Date | string): string {
   }).format(d);
 }
 
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat("id-ID").format(value);
+}
+
+export function formatCompactNumber(value: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    notation: "compact",
+    compactDisplay: "short",
+  }).format(value);
+}
+
+export function generateNumber(prefix: string, date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const random = (Date.now() % 100000).toString().padStart(5, "0");
+  return `${prefix}-${year}-${month}${day}-${random}`;
+}
+
 export function generateVisitNumber(date: Date): string {
-  const d = date;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const random = (Date.now() % 100000)
-    .toString()
-    .padStart(5, "0");
-  return `VIS-${year}-${month}${day}-${random}`;
+  return generateNumber("VIS", date);
 }
 
 export function generateInvoiceNumber(date: Date): string {
-  const d = date;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const random = (Date.now() % 100000)
-    .toString()
-    .padStart(5, "0");
-  return `INV-${year}-${month}${day}-${random}`;
+  return generateNumber("INV", date);
 }
 
 export function generateBillingNumber(date: Date): string {
-  const d = date;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const random = (Date.now() % 100000)
-    .toString()
-    .padStart(5, "0");
-  return `BIL-${year}-${month}${day}-${random}`;
+  return generateNumber("BIL", date);
 }
 
 export function generatePaymentNumber(date: Date): string {
-  const d = date;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const random = (Date.now() % 100000)
-    .toString()
-    .padStart(5, "0");
-  return `PAY-${year}-${month}${day}-${random}`;
+  return generateNumber("PAY", date);
 }
 
 export function generateOrderNumber(date: Date): string {
-  const d = date;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const random = (Date.now() % 100000)
-    .toString()
-    .padStart(5, "0");
-  return `RCP-${year}-${month}${day}-${random}`;
+  return generateNumber("RCP", date);
 }
 
 export function generatePrescriptionNumber(date: Date): string {
-  const d = date;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const random = (Date.now() % 100000)
-    .toString()
-    .padStart(5, "0");
-  return `RX-${year}-${month}${day}-${random}`;
+  return generateNumber("RX", date);
 }
 
 export function calculateAge(birthDate: Date | string): string {
@@ -128,4 +114,21 @@ export function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + "...";
+}
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -79,6 +79,7 @@ export const NAV_ITEMS = {
     { label: "Billing", href: "/billings", icon: "FileText" },
     { label: "POS", href: "/pos", icon: "ShoppingCart" },
     { label: "Invoice", href: "/invoices", icon: "Receipt" },
+    { label: "Pembayaran", href: "/invoices?status=UNPAID", icon: "CircleDollarSign" },
     { label: "Laporan", href: "/reports", icon: "BarChart3" },
     { type: "divider" },
     { label: "Layanan", href: "/master/services", icon: "Heart" },
@@ -104,6 +105,7 @@ export const NAV_ITEMS = {
     { label: "Billing", href: "/billings", icon: "FileText" },
     { label: "POS", href: "/pos", icon: "ShoppingCart" },
     { label: "Invoice", href: "/invoices", icon: "Receipt" },
+    { label: "Pembayaran", href: "/invoices?status=UNPAID", icon: "CircleDollarSign" },
   ],
   ADMIN: [
     { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },

@@ -141,3 +141,81 @@ export function generateCustomerRegistrationEmail(data: {
     </div>
   `;
 }
+
+export function generateNewCustomerNotificationEmail(data: {
+  customerName: string;
+  customerPhone: string;
+}) {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #3B82F6;">Pelanggan Baru Terdaftar</h2>
+      <p>Pelanggan baru telah terdaftar di sistem:</p>
+      <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <p><strong>Nama:</strong> ${data.customerName}</p>
+        <p><strong>Telepon:</strong> ${data.customerPhone}</p>
+      </div>
+      <p>Silakan periksa data pelanggan di dashboard.</p>
+    </div>
+  `;
+}
+
+export function generateLowStockEmail(data: {
+  products: { name: string; currentStock: number; reorderPoint: number }[];
+}) {
+  const productList = data.products
+    .map(
+      (p) =>
+        `<tr>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${p.name}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${p.currentStock}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${p.reorderPoint}</td>
+        </tr>`
+    )
+    .join("");
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #F59E0B;">Peringatan Stok Menipis</h2>
+      <p>Beberapa produk memiliki stok di bawah batas minimum:</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+        <thead>
+          <tr style="background: #f3f4f6;">
+            <th style="padding: 8px; text-align: left;">Produk</th>
+            <th style="padding: 8px; text-align: center;">Stok Saat Ini</th>
+            <th style="padding: 8px; text-align: center;">Batas Minimum</th>
+          </tr>
+        </thead>
+        <tbody>${productList}</tbody>
+      </table>
+      <p>Silakan lakukan restok segera untuk menghindari kehabisan stok.</p>
+    </div>
+  `;
+}
+
+export function generateDailySummaryEmail(data: {
+  date: string;
+  totalVisits: number;
+  totalRevenue: number;
+  totalPayments: number;
+  lowStockCount: number;
+}) {
+  const formattedRevenue = new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(data.totalRevenue);
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #3B82F6;">Ringkasan Harian - ${data.date}</h2>
+      <p>Berikut ringkasan aktivitas klinik hari ini:</p>
+      <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <p><strong>Total Kunjungan:</strong> ${data.totalVisits}</p>
+        <p><strong>Total Pendapatan:</strong> ${formattedRevenue}</p>
+        <p><strong>Total Pembayaran:</strong> ${data.totalPayments}</p>
+        ${data.lowStockCount > 0 ? `<p style="color: #F59E0B;"><strong>Stok Menipis:</strong> ${data.lowStockCount} produk</p>` : ""}
+      </div>
+      <p>Semoga harimu menyenangkan!</p>
+    </div>
+  `;
+}

@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -39,7 +39,7 @@ export function VisitsChart({ data, className }: VisitsChartProps) {
   return (
     <div className={cn("w-full", className)}>
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart
+        <LineChart
           data={data}
           margin={{
             top: 5,
@@ -66,12 +66,15 @@ export function VisitsChart({ data, className }: VisitsChartProps) {
               fontSize: "14px",
             }}
           />
-          <Bar
+          <Line
+            type="monotone"
             dataKey="value"
-            fill="#3b82f6"
-            radius={[4, 4, 0, 0]}
+            stroke="#3b82f6"
+            strokeWidth={2}
+            dot={{ fill: "#3b82f6", r: 4 }}
+            activeDot={{ r: 6 }}
           />
-        </BarChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );

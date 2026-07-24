@@ -11,6 +11,7 @@ import type { ActionResult } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -99,6 +100,12 @@ export default function LoginPage() {
                   {errors.password.message}
                 </p>
               )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="remember" name="remember" />
+              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                Ingat saya
+              </Label>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">

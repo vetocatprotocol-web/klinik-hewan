@@ -6,12 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { toNumber } from "@/types";
-import { Receipt } from "lucide-react";
+import { Receipt, Download } from "lucide-react";
 
-export default async function PortalInvoicesPage() {
+interface PortalInvoicesProps {
+  searchParams: Promise<{ status?: string }>;
+}
+
+export default async function PortalInvoicesPage({ searchParams }: PortalInvoicesProps) {
   const session = await auth();
   if (!session) redirect("/login");
 
+  const params = await searchParams;
   const customerId = (session.user as any)?.id;
 
   const customer = await prisma.customer.findUnique({
@@ -21,11 +26,12 @@ export default async function PortalInvoicesPage() {
 
   if (!customer) redirect("/login");
 
+  const where: any = { customerId: customer.id };
+  if (params.status) where.status = params.status;
+
   const invoices = await prisma.invoice.findMany({
-    where: { customerId: customer.id },
-    include: {
-      pet: { select: { name: true } },
-    } as any,
+    where,
+    include: { pet: { select: { name: true } } } as any,
     orderBy: { createdAt: "desc" },
   });
 
@@ -33,10 +39,18 @@ export default async function PortalInvoicesPage() {
     <div className="space-y-6 p-4 lg:p-6">
       <div>
         <h1 className="text-2xl font-bold">Invoice</h1>
-        <p className="text-sm text-muted-foreground">
-          Daftar invoice Anda
-        </p>
+        <p className="text-sm text-muted-foreground">Daftar invoice Anda</p>
       </div>
+
+      <form className="flex flex-wrap gap-3">
+        <select name="status" defaultValue={params.status || ""} className="rounded-md border bg-background px-3 py-2 text-sm">
+          <option value="">Semua Status</option>
+          <option value="UNPAID">Belum Dibayar</option>
+          <option value="PARTIAL">Sebagian</option>
+          <option value="PAID">Dibayar</option>
+        </select>
+        <button type="submit" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90">Filter</button>
+      </form>
 
       {invoices.length === 0 ? (
         <Card>
@@ -48,31 +62,33 @@ export default async function PortalInvoicesPage() {
       ) : (
         <div className="space-y-3">
           {invoices.map((invoice: any) => (
-            <Link key={invoice.id} href={`/portal/invoices/${invoice.id}`}>
-              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
+            <Card key={invoice.id} className="hover:bg-muted/50 transition-colors">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <Link href={`/portal/invoices/${invoice.id}`} className="flex-1">
                     <div className="space-y-1">
                       <p className="font-medium">{invoice.invoiceNumber}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(invoice.invoiceDate)}
-                      </p>
-                      {invoice.pet && (
-                        <p className="text-xs text-muted-foreground">
-                          {invoice.pet.name}
-                        </p>
-                      )}
+                      <p className="text-sm text-muted-foreground">{formatDate(invoice.invoiceDate)}</p>
+                      {invoice.pet && <p className="text-xs text-muted-foreground">{invoice.pet.name}</p>}
                     </div>
+                  </Link>
+                  <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="font-medium">
-                        {formatCurrency(toNumber(invoice.total))}
-                      </p>
+                      <p className="font-medium">{formatCurrency(toNumber(invoice.total))}</p>
                       <StatusBadge status={invoice.status} />
                     </div>
+                    <Link
+                      href={`/invoices/${invoice.id}/print`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                    >
+                      <Download className="h-3 w-3" />
+                      PDF
+                    </Link>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

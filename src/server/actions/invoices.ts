@@ -157,7 +157,7 @@ export async function getInvoicePayments(invoiceId: string) {
   });
 }
 
-export async function deletePayment(paymentId: string): Promise<ActionResult> {
+export async function deletePayment(_paymentId: string): Promise<ActionResult> {
   // PRD: Payments cannot be deleted
   return { success: false, error: { message: "Pembayaran tidak bisa dihapus", code: "BUSINESS_RULE" } };
 }
@@ -223,4 +223,59 @@ export async function emailInvoice(
   });
 
   return { success: true, data: invoice.invoiceNumber };
+}
+
+export async function getInvoice(invoiceId: string): Promise<ActionResult<any>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      customer: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      pet: { select: { id: true, name: true, species: true, breed: true } },
+      invoiceItems: true,
+    },
+  });
+
+  if (!invoice) {
+    return { success: false, error: { message: "Invoice tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  return { success: true, data: invoice };
+}
+
+export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResult<string>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      customer: { select: { name: true, email: true, phone: true, address: true } },
+      pet: { select: { name: true, species: true } },
+      invoiceItems: true,
+    },
+  });
+
+  if (!invoice) {
+    return { success: false, error: { message: "Invoice tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  try {
+    const { generateInvoiceHtml } = await import("../lib/pdf");
+    const html = await generateInvoiceHtml(invoiceId);
+    return { success: true, data: html };
+  } catch (error) {
+    return { success: false, error: { message: "Gagal generate PDF invoice", code: "PDF_FAILED" } };
+  }
 }

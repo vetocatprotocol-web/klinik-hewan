@@ -90,6 +90,7 @@ model Customer {
   prescriptions Prescription[]
   @@index([status])
   @@index([name])
+  @@index([createdAt])
   @@map("customers")
 }
 
@@ -245,6 +246,7 @@ model Visit {
   @@index([visitDate])
   @@index([status])
   @@index([createdBy])
+  @@index([customerId, visitDate])
   @@map("visits")
 }
 
@@ -357,6 +359,8 @@ model Invoice {
   @@index([status])
   @@index([invoiceDate])
   @@index([sourceType, sourceId])
+  @@index([customerId, status])
+  @@index([invoiceDate, status])
   @@map("invoices")
 }
 
@@ -525,6 +529,8 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId, createdAt])
   @@map("audit_logs")
 }
 

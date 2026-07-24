@@ -441,3 +441,106 @@ export async function updateVisit(
 
   return { success: true, data: id };
 }
+
+export async function addVisitItem(
+  visitId: string,
+  itemType: "SERVICE" | "DRUG",
+  itemId: string,
+  quantity: number
+): Promise<ActionResult<string>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "DOKTER"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+  if (!visit) {
+    return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+  if (visit.status !== "DRAFT") {
+    return { success: false, error: { message: "Hanya kunjungan DRAFT yang bisa ditambah itemnya", code: "BUSINESS_RULE" } };
+  }
+
+  let unitPrice = 0;
+  if (itemType === "SERVICE") {
+    const service = await prisma.service.findUnique({ where: { id: itemId } });
+    if (!service || service.status !== "ACTIVE") {
+      return { success: false, error: { message: "Layanan tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
+    }
+    unitPrice = Number(service.price);
+  } else {
+    const drug = await prisma.drug.findUnique({ where: { id: itemId } });
+    if (!drug || drug.status !== "ACTIVE") {
+      return { success: false, error: { message: "Obat tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
+    }
+    unitPrice = Number(drug.pricePerUnit);
+  }
+
+  const item = await prisma.visitItem.create({
+    data: {
+      visitId,
+      itemType,
+      serviceId: itemType === "SERVICE" ? itemId : null,
+      drugId: itemType === "DRUG" ? itemId : null,
+      quantity,
+      unitPrice,
+      subtotal: unitPrice * quantity,
+    },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "CREATE",
+    entityType: "VisitItem",
+    entityId: item.id,
+    changes: { visitId: { old: null, new: visitId }, itemType: { old: null, new: itemType } },
+  });
+
+  return { success: true, data: item.id };
+}
+
+export async function removeVisitItem(
+  visitId: string,
+  itemId: string
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "DOKTER"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+  if (!visit) {
+    return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+  if (visit.status !== "DRAFT") {
+    return { success: false, error: { message: "Hanya kunjungan DRAFT yang bisa dihapus itemnya", code: "BUSINESS_RULE" } };
+  }
+
+  const item = await prisma.visitItem.findFirst({
+    where: { id: itemId, visitId },
+  });
+  if (!item) {
+    return { success: false, error: { message: "Item tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  await prisma.visitItem.delete({ where: { id: itemId } });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "DELETE",
+    entityType: "VisitItem",
+    entityId: itemId,
+  });
+
+  return { success: true, data: undefined };
+}

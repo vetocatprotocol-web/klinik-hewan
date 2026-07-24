@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -40,6 +41,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "jose": "^6.2.4",
     "lucide-react": "^1.26.0",
     "next": "16.2.11",
     "next-auth": "5.0.0-beta.32",
@@ -55,15 +57,22 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/ui": "^4.1.10",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
+    "happy-dom": "^20.11.1",
     "tailwindcss": "^4",
     "tsx": "^4.0.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

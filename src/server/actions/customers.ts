@@ -148,6 +148,27 @@ export async function createCustomer(
     }
   }
 
+  // PRD §18.1: Notify Owner when new customer is registered
+  try {
+    const { sendEmail, generateNewCustomerNotificationEmail } = await import("../lib/email");
+    const ownerUser = await prisma.user.findFirst({
+      where: { role: { name: "OWNER" }, status: "ACTIVE" },
+      select: { email: true },
+    });
+    if (ownerUser?.email) {
+      await sendEmail({
+        to: ownerUser.email,
+        subject: `Pelanggan Baru: ${data.name}`,
+        html: generateNewCustomerNotificationEmail({
+          customerName: data.name,
+          customerPhone: data.phone,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error("Failed to send owner notification:", error);
+  }
+
   // Notify owners about new customer registration
   try {
     const { createBulkNotifications } = await import("../lib/notifications");

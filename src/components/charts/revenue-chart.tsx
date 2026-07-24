@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -43,7 +43,7 @@ export function RevenueChart({ data, className }: RevenueChartProps) {
   return (
     <div className={cn("w-full", className)}>
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart
+        <BarChart
           data={data}
           margin={{
             top: 5,
@@ -72,15 +72,12 @@ export function RevenueChart({ data, className }: RevenueChartProps) {
             }}
             formatter={(value) => [formatTooltipValue(Number(value)), "Pendapatan"]}
           />
-          <Line
-            type="monotone"
+          <Bar
             dataKey="value"
-            stroke="#10b981"
-            strokeWidth={2}
-            dot={{ fill: "#10b981", r: 4 }}
-            activeDot={{ r: 6 }}
+            fill="#10b981"
+            radius={[4, 4, 0, 0]}
           />
-        </LineChart>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
