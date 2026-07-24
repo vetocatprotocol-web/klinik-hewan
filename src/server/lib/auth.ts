@@ -21,28 +21,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("[AUTH] authorize called with:", { email: credentials?.email, hasPassword: !!credentials?.password });
         if (!credentials?.email || !credentials?.password) {
-          console.log("[AUTH] No credentials provided");
           return null;
         }
 
+        let client;
         try {
-          const client = await getPrismaClient();
-          console.log("[AUTH] Prisma client obtained");
+          client = await getPrismaClient();
+        } catch (error) {
+          console.error("[AUTH] Database connection failed:", error);
+          throw new Error("Terjadi kesalahan pada server");
+        }
 
-          const user = await client.user.findUnique({
+        let user;
+        try {
+          user = await client.user.findUnique({
             where: { email: credentials.email as string },
             include: { role: true },
           });
+        } catch (error) {
+          console.error("[AUTH] Database query failed:", error);
+          throw new Error("Terjadi kesalahan pada server");
+        }
 
-          console.log("[AUTH] User found:", !!user, user ? { email: user.email, status: user.status, role: user.role?.name } : null);
-
-          if (!user || user.status !== "ACTIVE") return null;
+        if (!user || user.status !== "ACTIVE") {
+          return null;
+        }
 
         if (user.lockedUntil && user.lockedUntil > new Date()) {
-          const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
-          throw new Error(`Akun terkunci. Coba lagi dalam ${minutesLeft} menit.`);
+          console.warn(`[AUTH] Account locked: ${user.email}`);
+          return null;
         }
 
         if (user.lockedUntil && user.lockedUntil <= new Date()) {
@@ -52,40 +60,47 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
         }
 
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        console.log("[AUTH] Password valid:", isValid);
+        let isValid: boolean;
+        try {
+          isValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
+        } catch (error) {
+          console.error("[AUTH] Password comparison failed:", error);
+          throw new Error("Terjadi kesalahan pada server");
+        }
 
         if (!isValid) {
           const newAttempts = user.failedLoginAttempts + 1;
-          const updateData: any = { failedLoginAttempts: newAttempts };
+          const updateData: Record<string, unknown> = { failedLoginAttempts: newAttempts };
 
           if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
             updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+            console.warn(`[AUTH] Account locked for ${user.email} after ${newAttempts} failed attempts`);
           }
 
-          await client.user.update({
-            where: { id: user.id },
-            data: updateData,
-          });
-
-          if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
-            throw new Error(`Akun terkunci karena ${MAX_LOGIN_ATTEMPTS} percobaan gagal. Coba lagi dalam ${LOCKOUT_DURATION_MINUTES} menit.`);
+          try {
+            await client.user.update({
+              where: { id: user.id },
+              data: updateData,
+            });
+          } catch (error) {
+            console.error("[AUTH] Failed to update login attempts:", error);
           }
 
-          const remaining = MAX_LOGIN_ATTEMPTS - newAttempts;
-          throw new Error(`Email atau password salah. Sisa percobaan: ${remaining}`);
+          return null;
         }
 
-        await client.user.update({
-          where: { id: user.id },
-          data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
-        });
+        try {
+          await client.user.update({
+            where: { id: user.id },
+            data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
+          });
+        } catch (error) {
+          console.error("[AUTH] Failed to update last login:", error);
+        }
 
-        console.log("[AUTH] Login successful for:", user.email);
         return {
           id: user.id,
           name: user.name,
@@ -93,10 +108,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role.name,
           image: user.image,
         };
-        } catch (error) {
-          console.error("[AUTH] authorize error:", error);
-          return null;
-        }
       },
     }),
   ],

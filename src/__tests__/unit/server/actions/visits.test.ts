@@ -120,7 +120,6 @@ describe("Visit Actions", () => {
       });
 
       (mockPrisma.visitItem.create as any).mockResolvedValue({});
-      (mockPrisma.createAuditLog as any)?.mockResolvedValue?.(undefined);
 
       const formData = createFormData({
         customerId: "cust-1",
