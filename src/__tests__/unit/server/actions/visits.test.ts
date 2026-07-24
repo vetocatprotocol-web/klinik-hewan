@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/server/lib/prisma", () => ({
-  default: {
+vi.mock("@/server/lib/prisma", () => {
+  const mockClient = {
     visit: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -43,8 +43,13 @@ vi.mock("@/server/lib/prisma", () => ({
       findUnique: vi.fn(),
     },
     $transaction: vi.fn(),
-  },
-}));
+  };
+
+  return {
+    default: mockClient,
+    prisma: vi.fn(async () => mockClient),
+  };
+});
 
 vi.mock("@/server/lib/auth", () => ({
   auth: vi.fn(),
@@ -115,6 +120,7 @@ describe("Visit Actions", () => {
       });
 
       (mockPrisma.visitItem.create as any).mockResolvedValue({});
+      (mockPrisma.createAuditLog as any)?.mockResolvedValue?.(undefined);
 
       const formData = createFormData({
         customerId: "cust-1",

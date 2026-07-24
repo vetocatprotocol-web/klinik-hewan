@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/server/lib/prisma", () => ({
-  default: {
+vi.mock("@/server/lib/prisma", () => {
+  const mockClient = {
     customer: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -22,12 +22,22 @@ vi.mock("@/server/lib/prisma", () => ({
       findMany: vi.fn(),
       count: vi.fn(),
     },
+    role: {
+      findFirst: vi.fn(),
+    },
     user: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
     },
-  },
-}));
+  };
+
+  return {
+    default: mockClient,
+    prisma: vi.fn(async () => mockClient),
+  };
+});
 
 vi.mock("@/server/lib/auth", () => ({
   auth: vi.fn(),
@@ -77,6 +87,11 @@ describe("Customer Actions", () => {
         name: "John Doe",
         phone: "081234567890",
       });
+      (mockPrisma.role.findFirst as any).mockResolvedValue({ id: "role-customer", name: "CUSTOMER" });
+      (mockPrisma.user.create as any).mockResolvedValue({ id: "user-cust-1", email: "john@example.com" });
+      (mockPrisma.customer.update as any).mockResolvedValue({ id: "cust-1" });
+      (mockPrisma.user.findFirst as any).mockResolvedValue({ email: "owner@example.com" });
+      (mockPrisma.user.findMany as any).mockResolvedValue([]);
 
       const formData = createFormData({
         name: "John Doe",

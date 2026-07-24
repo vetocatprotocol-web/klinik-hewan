@@ -22,6 +22,17 @@ export default function DashboardLayout({
     );
   }
 
+  if (status === "unauthenticated" || !session) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="mb-2 font-medium">Sesi berakhir atau belum aktif</p>
+          <p className="text-sm text-muted-foreground">Silakan masuk kembali.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar

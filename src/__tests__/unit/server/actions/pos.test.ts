@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/server/lib/prisma", () => ({
-  default: {
+vi.mock("@/server/lib/prisma", () => {
+  const mockClient = {
     posOrder: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -24,9 +24,23 @@ vi.mock("@/server/lib/prisma", () => ({
     stockAdjustment: {
       create: vi.fn(),
     },
+    invoice: {
+      create: vi.fn(),
+    },
+    invoiceItem: {
+      create: vi.fn(),
+    },
+    payment: {
+      create: vi.fn(),
+    },
     $transaction: vi.fn(),
-  },
-}));
+  };
+
+  return {
+    default: mockClient,
+    prisma: vi.fn(async () => mockClient),
+  };
+});
 
 vi.mock("@/server/lib/auth", () => ({
   auth: vi.fn(),
@@ -152,9 +166,28 @@ describe("POS Actions", () => {
             findMany: vi.fn().mockResolvedValue([
               { id: "prod-1", name: "Royal Canin", price: 450000, currentStock: 50, status: "ACTIVE" },
             ]),
+            update: vi.fn(),
           },
           setting: {
             findUnique: vi.fn().mockResolvedValue({ value: { enabled: false } }),
+          },
+          posOrder: {
+            create: vi.fn().mockResolvedValue({ id: "order-1" }),
+          },
+          posOrderItem: {
+            create: vi.fn(),
+          },
+          stockAdjustment: {
+            create: vi.fn(),
+          },
+          invoice: {
+            create: vi.fn(),
+          },
+          invoiceItem: {
+            create: vi.fn(),
+          },
+          payment: {
+            create: vi.fn(),
           },
         };
         return fn(tx);

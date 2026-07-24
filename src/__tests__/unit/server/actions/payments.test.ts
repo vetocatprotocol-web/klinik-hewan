@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/server/lib/prisma", () => ({
-  default: {
+vi.mock("@/server/lib/prisma", () => {
+  const mockClient = {
     invoice: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -16,8 +16,13 @@ vi.mock("@/server/lib/prisma", () => ({
       update: vi.fn(),
     },
     $transaction: vi.fn(),
-  },
-}));
+  };
+
+  return {
+    default: mockClient,
+    prisma: vi.fn(async () => mockClient),
+  };
+});
 
 vi.mock("@/server/lib/auth", () => ({
   auth: vi.fn(),
@@ -84,10 +89,13 @@ describe("Payment Actions", () => {
             create: vi.fn().mockResolvedValue({ id: "pay-1" }),
           },
           invoice: {
-            update: vi.fn(),
+            update: vi.fn().mockResolvedValue({ id: "inv-1" }),
           },
           visit: {
-            update: vi.fn(),
+            update: vi.fn().mockResolvedValue({ id: "visit-1" }),
+          },
+          billing: {
+            update: vi.fn().mockResolvedValue({ id: "billing-1" }),
           },
         };
         return fn(tx);
