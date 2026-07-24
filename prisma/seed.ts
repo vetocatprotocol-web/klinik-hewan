@@ -256,9 +256,11 @@ async function main() {
       key: "company_info",
       value: {
         name: "Klinik Hewan PetCare",
+        logo: "",
         address: "",
         phone: "",
         email: "",
+        operatingHours: "Senin-Sabtu: 08.00-20.00, Minggu: 09.00-14.00",
         taxId: "",
         invoiceFooter: "Terima kasih atas kunjungan Anda",
         receiptFooter: "Terima kasih",

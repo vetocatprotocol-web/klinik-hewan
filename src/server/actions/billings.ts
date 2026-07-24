@@ -8,7 +8,7 @@ import { generateBillingNumber, generateInvoiceNumber } from "@/lib/utils";
 import { createAuditLog } from "../lib/audit";
 import { createNotification } from "../lib/notifications";
 
-const BILLING_ROLES = ["OWNER", "KASIR", "DOKTER"];
+const BILLING_ROLES = ["OWNER", "DOKTER"];
 
 export async function createBilling(
   _prevState: any,

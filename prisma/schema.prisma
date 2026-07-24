@@ -91,6 +91,7 @@ model Customer {
   @@index([status])
   @@index([name])
   @@index([createdAt])
+  @@index([email])
   @@map("customers")
 }
 
@@ -116,6 +117,7 @@ model Pet {
   @@index([customerId])
   @@index([species])
   @@index([status])
+  @@index([name])
   @@map("pets")
 }
 
@@ -269,6 +271,8 @@ model VisitItem {
   drug    Drug?    @relation(fields: [drugId], references: [id])
   @@index([visitId])
   @@index([itemType])
+  @@index([serviceId])
+  @@index([drugId])
   @@map("visit_items")
 }
 
@@ -401,6 +405,7 @@ model Prescription {
   @@unique([visitId])
   @@index([visitId])
   @@index([customerId])
+  @@index([prescriptionDate])
   @@map("prescriptions")
 }
 
@@ -503,6 +508,7 @@ model StockAdjustment {
   creator User    @relation("StockAdjustmentCreator", fields: [createdBy], references: [id])
   @@index([productId])
   @@index([createdAt])
+  @@index([reason])
   @@map("stock_adjustments")
 }
 
@@ -529,6 +535,7 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@index([action])
   @@index([userId, createdAt])
   @@index([entityType, entityId, createdAt])
   @@map("audit_logs")

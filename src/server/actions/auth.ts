@@ -55,12 +55,20 @@ export async function login(
     return { success: true, data: undefined };
   } catch (error: any) {
     if (error?.type === "CredentialsSignin") {
+      // Increment failed login attempts
+      if (user) {
+        const newAttempts = user.failedLoginAttempts + 1;
+        const updateData: any = { failedLoginAttempts: newAttempts };
+        if (newAttempts >= 5) {
+          updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+        }
+        await prisma.user.update({ where: { id: user.id }, data: updateData });
+      }
       return {
         success: false,
         error: { message: "Email atau password salah" },
       };
     }
-    // Re-throw redirect errors (these are expected on successful login)
     if (error?.message?.includes("NEXT_REDIRECT")) {
       throw error;
     }
@@ -97,7 +105,7 @@ export async function forgotPassword(
 
   // Generate secure token
   const token = crypto.randomUUID();
-  const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hour expiry per PRD §14.3
 
   // Store token in database
   await prisma.user.update({
@@ -131,7 +139,7 @@ export async function forgotPassword(
                 Reset Password
               </a>
             </div>
-            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">Link ini akan kedaluwarsa dalam 1 jam.</p>
+            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">Link ini akan kedaluwarsa dalam 24 jam.</p>
             <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">Jika Anda tidak meminta reset password, abaikan email ini. Password Anda tidak akan berubah.</p>
           </div>
           <div style="background: #f3f4f6; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">

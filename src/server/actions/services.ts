@@ -6,7 +6,7 @@ import { serviceSchema, drugSchema, productSchema, productCategorySchema } from 
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 
-const MASTER_ROLES = ["OWNER", "ADMIN"];
+const MASTER_ROLES = ["OWNER"];
 
 // ─── Services ─────────────────────────────────────────────
 

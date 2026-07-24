@@ -3,12 +3,14 @@
 import { auth } from "../lib/auth";
 import prisma from "../lib/prisma";
 
+const REPORT_ROLES = ["OWNER", "ADMIN"];
+
 export async function getDailyReport(date?: string) {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
   const role = (session.user as any).role;
-  if (role !== "OWNER") throw new Error("FORBIDDEN");
+  if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
   const targetDate = date ? new Date(date) : new Date();
   const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
@@ -27,9 +29,9 @@ export async function getDailyReport(date?: string) {
       where: { createdAt: { gte: startOfDay, lt: endOfDay }, status: "PAID" },
     }),
     prisma.product.findMany({
-      where: { status: "ACTIVE", currentStock: { lt: prisma.product.fields.reorderPoint } },
+      where: { status: "ACTIVE" },
       select: { id: true, name: true, currentStock: true, reorderPoint: true },
-    }),
+    }).then((products) => products.filter((p) => p.currentStock < p.reorderPoint)),
   ]);
 
   const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
@@ -50,7 +52,7 @@ export async function getRevenueReport(startDate: string, endDate: string) {
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
   const role = (session.user as any).role;
-  if (role !== "OWNER") throw new Error("FORBIDDEN");
+  if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -90,7 +92,7 @@ export async function getCustomerReport() {
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
   const role = (session.user as any).role;
-  if (role !== "OWNER") throw new Error("FORBIDDEN");
+  if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
   const customers = await prisma.customer.findMany({
     where: { status: "ACTIVE" },
@@ -117,7 +119,7 @@ export async function getPaymentReport() {
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
   const role = (session.user as any).role;
-  if (role !== "OWNER") throw new Error("FORBIDDEN");
+  if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
   const unpaidInvoices = await prisma.invoice.findMany({
     where: { status: { in: ["UNPAID", "PARTIAL"] } },

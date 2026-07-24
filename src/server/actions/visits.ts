@@ -194,6 +194,9 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
   let prescriptionNumber: string | null = null;
 
   const result = await prisma.$transaction(async (tx) => {
+    const dueDate = new Date(now);
+    dueDate.setDate(dueDate.getDate() + 30);
+
     const invoice = await tx.invoice.create({
       data: {
         invoiceNumber,
@@ -202,6 +205,7 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
         sourceType: "VISIT",
         sourceId: id,
         invoiceDate: now,
+        dueDate,
         subtotal,
         taxAmount,
         total,

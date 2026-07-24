@@ -160,9 +160,11 @@ export const stockAdjustmentSchema = z.object({
 
 export const companyInfoSchema = z.object({
   name: z.string().min(1, "Nama klinik harus diisi"),
+  logo: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   email: z.string().email("Email tidak valid").optional().or(z.literal("")),
+  operatingHours: z.string().optional().or(z.literal("")),
   taxId: z.string().optional().or(z.literal("")),
   invoiceFooter: z.string().optional().or(z.literal("")),
   receiptFooter: z.string().optional().or(z.literal("")),
@@ -187,6 +189,6 @@ export const profileSchema = z.object({
 
 export const passwordSchema = z.object({
   currentPassword: z.string().min(1, "Password lama harus diisi"),
-  password: z.string().min(8, "Password minimal 8 karakter"),
+  password: passwordComplexitySchema,
   confirmPassword: z.string().min(1, "Konfirmasi password harus diisi"),
 });

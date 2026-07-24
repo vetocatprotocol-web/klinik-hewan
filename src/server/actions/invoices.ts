@@ -2,45 +2,22 @@
 
 import { auth } from "../lib/auth";
 import prisma from "../lib/prisma";
-import { paymentSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
-import { generatePaymentNumber } from "@/lib/utils";
 import { createAuditLog } from "../lib/audit";
-import { createNotification } from "../lib/notifications";
-import { sendEmail, generateInvoiceEmail, generatePaymentConfirmationEmail } from "../lib/email";
+import { sendEmail, generateInvoiceEmail } from "../lib/email";
 
-const PAYMENT_ROLES = ["OWNER", "KASIR"];
-
-export async function processPayment(
-  _prevState: any,
-  formData: FormData
-): Promise<ActionResult<string>> {
+export async function getInvoice(invoiceId: string): Promise<ActionResult<any>> {
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
-  if (!PAYMENT_ROLES.includes(role)) {
-    return { success: false, error: { message: "Hanya Owner atau Kasir yang bisa memproses pembayaran", code: "FORBIDDEN" } };
-  }
-
-  const data = {
-    invoiceId: formData.get("invoiceId") as string,
-    paymentMethod: formData.get("paymentMethod") as string,
-    amount: Number(formData.get("amount")),
-  };
-
-  const validated = paymentSchema.safeParse(data);
-  if (!validated.success) {
-    const fieldError = validated.error.issues[0];
-    return { success: false, error: { message: fieldError.message, field: fieldError.path[0] as string } };
-  }
-
   const invoice = await prisma.invoice.findUnique({
-    where: { id: data.invoiceId },
+    where: { id: invoiceId },
     include: {
-      customer: { select: { id: true, name: true, email: true, userId: true } },
+      customer: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      pet: { select: { id: true, name: true, species: true, breed: true } },
+      invoiceItems: true,
     },
   });
 
@@ -48,101 +25,7 @@ export async function processPayment(
     return { success: false, error: { message: "Invoice tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  if (invoice.status === "PAID") {
-    return { success: false, error: { message: "Invoice sudah dibayar penuh", code: "BUSINESS_RULE" } };
-  }
-
-  const remaining = Number(invoice.total) - Number(invoice.paidAmount);
-  if (data.amount > remaining) {
-    return { success: false, error: { message: `Jumlah pembayaran melebihi sisa tagihan. Sisa: Rp ${remaining.toLocaleString("id-ID")}`, code: "INVALID_PAYMENT" } };
-  }
-
-  const now = new Date();
-  const paymentNumber = generatePaymentNumber(now);
-  const newPaidAmount = Number(invoice.paidAmount) + data.amount;
-  const newStatus = newPaidAmount >= Number(invoice.total) ? "PAID" : "PARTIAL";
-  const receivedById = session.user.id!;
-
-  // Payment + invoice update + status cascade in transaction
-  await prisma.$transaction(async (tx) => {
-    await tx.payment.create({
-      data: {
-        paymentNumber,
-        payableType: "Invoice",
-        payableId: data.invoiceId,
-        paymentMethod: data.paymentMethod,
-        amount: data.amount,
-        status: "PAID",
-        receivedBy: receivedById,
-      },
-    });
-
-    await tx.invoice.update({
-      where: { id: data.invoiceId },
-      data: {
-        paidAmount: newPaidAmount,
-        status: newStatus as any,
-      },
-    });
-
-    // If invoice is fully paid, update related visit/billing status
-    if (newStatus === "PAID") {
-      if (invoice.sourceType === "VISIT") {
-        await tx.visit.update({
-          where: { id: invoice.sourceId },
-          data: { status: "PAID" },
-        });
-      } else if (invoice.sourceType === "BILLING") {
-        await tx.billing.update({
-          where: { id: invoice.sourceId },
-          data: { status: "PAID" },
-        });
-      }
-    }
-  });
-
-  await createAuditLog({
-    userId: session.user.id,
-    action: "PAYMENT",
-    entityType: "Payment",
-    entityId: paymentNumber,
-    changes: {
-      invoiceNumber: { old: null, new: invoice.invoiceNumber },
-      amount: { old: null, new: data.amount },
-      paymentMethod: { old: null, new: data.paymentMethod },
-      newStatus: { old: invoice.status, new: newStatus },
-    },
-  });
-
-  // Notify customer via in-app notification
-  if (invoice.customer.userId) {
-    await createNotification({
-      userId: invoice.customer.userId,
-      title: "Pembayaran Diterima",
-      message: `Pembayaran Anda sebesar Rp ${data.amount.toLocaleString("id-ID")} untuk invoice ${invoice.invoiceNumber} telah diterima. ${newStatus === "PAID" ? "Invoice telah lunas." : `Sisa: Rp ${(remaining - data.amount).toLocaleString("id-ID")}`}`,
-      type: "success",
-    });
-  }
-
-  // Send payment confirmation email
-  if (invoice.customer.email) {
-    try {
-      await sendEmail({
-        to: invoice.customer.email,
-        subject: `Konfirmasi Pembayaran - ${invoice.invoiceNumber}`,
-        html: generatePaymentConfirmationEmail({
-          customerName: invoice.customer.name,
-          invoiceNumber: invoice.invoiceNumber,
-          amount: data.amount,
-          paymentMethod: data.paymentMethod,
-        }),
-      });
-    } catch (error) {
-      console.error("Failed to send payment confirmation email:", error);
-    }
-  }
-
-  return { success: true, data: paymentNumber };
+  return { success: true, data: invoice };
 }
 
 export async function getInvoicePayments(invoiceId: string) {
@@ -158,8 +41,40 @@ export async function getInvoicePayments(invoiceId: string) {
 }
 
 export async function deletePayment(_paymentId: string): Promise<ActionResult> {
-  // PRD: Payments cannot be deleted
   return { success: false, error: { message: "Pembayaran tidak bisa dihapus", code: "BUSINESS_RULE" } };
+}
+
+export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResult<string>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      customer: { select: { name: true, email: true, phone: true, address: true } },
+      pet: { select: { name: true, species: true } },
+      invoiceItems: true,
+    },
+  });
+
+  if (!invoice) {
+    return { success: false, error: { message: "Invoice tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  try {
+    const { generateInvoiceHtml } = await import("../lib/pdf");
+    const html = await generateInvoiceHtml(invoiceId);
+    return { success: true, data: html };
+  } catch (error) {
+    return { success: false, error: { message: "Gagal generate PDF invoice", code: "PDF_FAILED" } };
+  }
 }
 
 export async function emailInvoice(
@@ -172,7 +87,7 @@ export async function emailInvoice(
   }
 
   const role = (session.user as any).role;
-  if (!PAYMENT_ROLES.includes(role)) {
+  if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -223,59 +138,4 @@ export async function emailInvoice(
   });
 
   return { success: true, data: invoice.invoiceNumber };
-}
-
-export async function getInvoice(invoiceId: string): Promise<ActionResult<any>> {
-  const session = await auth();
-  if (!session?.user) {
-    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
-  }
-
-  const invoice = await prisma.invoice.findUnique({
-    where: { id: invoiceId },
-    include: {
-      customer: { select: { id: true, name: true, email: true, phone: true, address: true } },
-      pet: { select: { id: true, name: true, species: true, breed: true } },
-      invoiceItems: true,
-    },
-  });
-
-  if (!invoice) {
-    return { success: false, error: { message: "Invoice tidak ditemukan", code: "NOT_FOUND" } };
-  }
-
-  return { success: true, data: invoice };
-}
-
-export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResult<string>> {
-  const session = await auth();
-  if (!session?.user) {
-    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
-  }
-
-  const role = (session.user as any).role;
-  if (!["OWNER", "KASIR"].includes(role)) {
-    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
-  }
-
-  const invoice = await prisma.invoice.findUnique({
-    where: { id: invoiceId },
-    include: {
-      customer: { select: { name: true, email: true, phone: true, address: true } },
-      pet: { select: { name: true, species: true } },
-      invoiceItems: true,
-    },
-  });
-
-  if (!invoice) {
-    return { success: false, error: { message: "Invoice tidak ditemukan", code: "NOT_FOUND" } };
-  }
-
-  try {
-    const { generateInvoiceHtml } = await import("../lib/pdf");
-    const html = await generateInvoiceHtml(invoiceId);
-    return { success: true, data: html };
-  } catch (error) {
-    return { success: false, error: { message: "Gagal generate PDF invoice", code: "PDF_FAILED" } };
-  }
 }
