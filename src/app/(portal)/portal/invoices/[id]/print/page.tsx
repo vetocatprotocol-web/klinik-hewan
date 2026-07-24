@@ -1,43 +1,28 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { notFound } from "next/navigation";
+import { auth } from "@/server/lib/auth";
+import prisma from "@/server/lib/prisma";
 import { generateInvoiceHtml } from "@/server/lib/pdf";
 
-export default function PortalInvoicePrintPage() {
-  const params = useParams();
-  const [html, setHtml] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+interface PortalInvoicePrintPageProps {
+  params: Promise<{ id: string }>;
+}
 
-  useEffect(() => {
-    const id = params.id as string;
-    generateInvoiceHtml(id)
-      .then((result) => {
-        setHtml(result);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message || "Gagal memuat invoice");
-        setLoading(false);
-      });
-  }, [params.id]);
+export default async function PortalInvoicePrintPage({ params }: PortalInvoicePrintPageProps) {
+  const session = await auth();
+  if (!session?.user) notFound();
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  const { id } = await params;
+  const invoice = await prisma.invoice.findFirst({
+    where: {
+      id,
+      customer: { userId: session.user.id },
+    },
+    select: { id: true },
+  });
 
-  if (error) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-destructive">{error}</p>
-      </div>
-    );
-  }
+  if (!invoice) notFound();
+
+  const html = await generateInvoiceHtml(invoice.id);
 
   return (
     <div style={{ width: "100%", height: "100vh" }}>
