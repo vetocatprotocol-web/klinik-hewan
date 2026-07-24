@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { signIn, useSession, getSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, PawPrint } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,22 @@ function getDashboardPath(role?: string): string {
 
 export default function LoginPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [prefetched, setPrefetched] = useState(false);
+
+  // Prefetch dashboard when user starts typing credentials
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+    if (!prefetched && e.target.value.length > 3) {
+      setPrefetched(true);
+      router.prefetch("/dashboard");
+      router.prefetch("/portal/dashboard");
+    }
+  }, [prefetched, router]);
 
   useEffect(() => {
     if (status === "authenticated" && session) {
@@ -94,7 +107,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 disabled={isPending}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 required
               />
             </div>
