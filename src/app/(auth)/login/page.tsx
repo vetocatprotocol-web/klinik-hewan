@@ -1,17 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, PawPrint } from "lucide-react";
-import { login } from "@/server/actions/auth";
-import { loginSchema } from "@/lib/validators";
-import type { ActionResult } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -21,24 +17,38 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-type LoginFormData = {
-  email: string;
-  password: string;
-};
-
 export default function LoginPage() {
-  const [state, formAction, isPending] = useActionState(login, null);
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, setIsPending] = useState(false);
 
-  const {
-    register,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setIsPending(true);
+
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Email atau password salah");
+        setIsPending(false);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+      setIsPending(false);
+    }
+  }
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -54,11 +64,11 @@ export default function LoginPage() {
             Masukkan kredensial Anda untuk melanjutkan
           </CardDescription>
         </CardHeader>
-        <form action={formAction}>
+        <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {state && !state.success && (
+            {error && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {state.error.message}
+                {error}
               </div>
             )}
 
@@ -70,11 +80,10 @@ export default function LoginPage() {
                 placeholder="nama@klinik.com"
                 autoComplete="email"
                 disabled={isPending}
-                {...register("email")}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -93,19 +102,10 @@ export default function LoginPage() {
                 placeholder="Masukkan password"
                 autoComplete="current-password"
                 disabled={isPending}
-                {...register("password")}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
               />
-              {errors.password && (
-                <p className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox id="remember" name="remember" />
-              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
-                Ingat saya
-              </Label>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
