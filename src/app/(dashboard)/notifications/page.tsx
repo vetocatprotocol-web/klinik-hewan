@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { fetchNotifications } from "@/server/actions/queries";
-import { markAllNotificationsRead } from "@/server/actions/settings";
+import { markAllAsRead } from "@/server/actions/notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -53,7 +53,7 @@ export default function NotificationsPage() {
   const handleMarkAllAsRead = async () => {
     setMarkingAll(true);
     try {
-      await markAllNotificationsRead();
+      await markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } finally {
       setMarkingAll(false);

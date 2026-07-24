@@ -19,17 +19,20 @@ export default async function PortalDashboardPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const customerId = (session.user as any)?.id;
+  const userId = (session.user as any)?.id;
 
-  const [customer, recentVisits, unpaidInvoices] = await Promise.all([
-    prisma.customer.findUnique({
-      where: { userId: customerId },
-      include: {
-        pets: { select: { id: true, name: true, species: true, breed: true } },
-      },
-    }),
+  const customer = await prisma.customer.findUnique({
+    where: { userId },
+    include: {
+      pets: { select: { id: true, name: true, species: true, breed: true } },
+    },
+  });
+
+  if (!customer) redirect("/login");
+
+  const [recentVisits, unpaidInvoices] = await Promise.all([
     prisma.visit.findMany({
-      where: { customerId },
+      where: { customerId: customer.id },
       include: {
         pet: { select: { name: true } },
       },
@@ -38,15 +41,13 @@ export default async function PortalDashboardPage() {
     }),
     prisma.invoice.findMany({
       where: {
-        customerId,
+        customerId: customer.id,
         status: { in: ["UNPAID", "PARTIAL"] },
       },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
   ]);
-
-  if (!customer) redirect("/login");
 
   return (
     <div className="space-y-6 p-4 lg:p-6">

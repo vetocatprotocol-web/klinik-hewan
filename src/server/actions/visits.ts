@@ -59,6 +59,28 @@ export async function createVisit(
     };
   }
 
+  // Validate customer and pet exist
+  const [customer, pet] = await Promise.all([
+    prisma.customer.findUnique({ where: { id: data.customerId }, select: { id: true, status: true } }),
+    prisma.pet.findUnique({ where: { id: data.petId }, select: { id: true, customerId: true, status: true } }),
+  ]);
+
+  if (!customer) {
+    return { success: false, error: { message: "Pelanggan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+  if (customer.status !== "ACTIVE") {
+    return { success: false, error: { message: "Pelanggan tidak aktif", code: "BUSINESS_RULE" } };
+  }
+  if (!pet) {
+    return { success: false, error: { message: "Hewan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+  if (pet.customerId !== data.customerId) {
+    return { success: false, error: { message: "Hewan tidak dimiliki oleh pelanggan ini", code: "BUSINESS_RULE" } };
+  }
+  if (pet.status !== "ACTIVE") {
+    return { success: false, error: { message: "Hewan tidak aktif", code: "BUSINESS_RULE" } };
+  }
+
   // Get prices from master data
   const serviceIds = services.map((s: any) => s.serviceId);
   const drugIds = drugs.map((d: any) => d.drugId);
