@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  CircleDollarSign,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   PawPrint,
   Clock,
   User,
+  CircleDollarSign,
 };
 
 interface SidebarProps {

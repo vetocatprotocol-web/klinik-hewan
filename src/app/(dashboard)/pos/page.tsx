@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { fetchActiveProducts, fetchProductCategories, fetchSettings } from "@/server/actions/queries";
-import { createPosOrder, addPosItem, checkoutPos } from "@/server/actions/pos";
+import { processPosTransaction } from "@/server/actions/pos";
 import { formatCurrency } from "@/lib/utils";
 import { PAYMENT_METHODS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -215,27 +215,19 @@ export default function POSPage() {
     }
     setProcessing(true);
     try {
-      const orderResult = await createPosOrder();
-      if (!orderResult.success || !orderResult.data) {
-        setCartError("Gagal membuat pesanan");
-        return;
-      }
-      const orderId = orderResult.data;
-      for (const item of cartItems) {
-        const addResult = await addPosItem(orderId, item.productId, item.quantity);
-        if (!addResult.success) {
-          setCartError("Gagal menambahkan item ke pesanan");
-          return;
-        }
-      }
-      const checkoutResult = await checkoutPos(orderId, paymentMethod, paid, discount);
-      if (!checkoutResult.success) {
-        setCartError("Gagal memproses pembayaran");
+      const result = await processPosTransaction({
+        items: cartItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        paymentMethod,
+        paymentAmount: paid,
+        discountAmount: discount,
+      });
+      if (!result.success || !result.data) {
+        setCartError(result.success ? "Gagal memproses transaksi" : (result.error?.message || "Gagal memproses transaksi"));
         return;
       }
       setReceiptDetails({
-        orderNumber: orderId, subtotal, taxAmount, discountAmount: discount,
-        total, paymentMethod, paymentAmount: paid, changeAmount,
+        orderNumber: result.data.orderNumber, subtotal, taxAmount, discountAmount: discount,
+        total, paymentMethod, paymentAmount: paid, changeAmount: result.data.changeAmount,
         items: [...cartItems],
       });
       setReceiptOpen(true);

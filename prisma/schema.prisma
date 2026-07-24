@@ -336,6 +336,7 @@ enum InvoiceStatus {
 enum SourceType {
   VISIT
   BILLING
+  POS
 }
 
 model Invoice {

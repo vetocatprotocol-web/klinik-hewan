@@ -79,6 +79,7 @@ export const NAV_ITEMS = {
     { label: "Billing", href: "/billings", icon: "FileText" },
     { label: "POS", href: "/pos", icon: "ShoppingCart" },
     { label: "Invoice", href: "/invoices", icon: "Receipt" },
+    { label: "Resep", href: "/prescriptions", icon: "FileText" },
     { label: "Pembayaran", href: "/invoices?status=UNPAID", icon: "CircleDollarSign" },
     { label: "Laporan", href: "/reports", icon: "BarChart3" },
     { type: "divider" },
@@ -96,6 +97,7 @@ export const NAV_ITEMS = {
     { label: "Pelanggan", href: "/customers", icon: "Users" },
     { label: "Kunjungan", href: "/visits", icon: "Stethoscope" },
     { label: "Billing", href: "/billings", icon: "FileText" },
+    { label: "Resep", href: "/prescriptions", icon: "FileText" },
   ],
   KASIR: [
     { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },

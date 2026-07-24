@@ -367,3 +367,251 @@ export async function generatePrescriptionHtml(prescriptionId: string): Promise<
 </body>
 </html>`;
 }
+
+export async function generateVisitNotesHtml(visitId: string): Promise<string> {
+  const visit = await prisma.visit.findUnique({
+    where: { id: visitId },
+    include: {
+      customer: true,
+      pet: true,
+      visitItems: {
+        include: {
+          service: true,
+          drug: true,
+        },
+      },
+    },
+  });
+
+  if (!visit) {
+    return `<html><body><h1>Kunjungan tidak ditemukan</h1></body></html>`;
+  }
+
+  const companyInfo = await getCompanyInfo();
+
+  const itemsHtml = visit.visitItems
+    .map(
+      (item) => `
+    <tr>
+      <td>${item.itemType === "SERVICE" ? "Layanan" : "Obat"}</td>
+      <td>${escapeHtml(item.service?.name || item.drug?.name || "-")}</td>
+      <td class="text-right">${item.quantity}</td>
+      <td class="text-right">${formatCurrency(Number(item.unitPrice))}</td>
+      <td class="text-right">${formatCurrency(Number(item.subtotal))}</td>
+    </tr>`
+    )
+    .join("");
+
+  const subtotal = visit.visitItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catatan Kunjungan ${escapeHtml(visit.visitNumber)}</title>
+  <style>${basePrintStyles()}</style>
+</head>
+<body>
+  <div class="no-print">
+    <button onclick="window.print()">Cetak Catatan Kunjungan</button>
+  </div>
+
+  <div class="header">
+    <div class="clinic-info">
+      <h1>${escapeHtml(companyInfo.name || "Klinik Hewan")}</h1>
+      <p>${escapeHtml(companyInfo.address || "")}</p>
+      <p>${escapeHtml(companyInfo.phone || "")}</p>
+    </div>
+    <div class="doc-title">
+      <h2>CATATAN KUNJUNGAN</h2>
+      <p>${escapeHtml(visit.visitNumber)}</p>
+      <p>${formatDate(visit.visitDate)}</p>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <h3>Informasi Pelanggan</h3>
+      <p><strong>${escapeHtml(visit.customer.name)}</strong></p>
+      <p>${escapeHtml(visit.customer.phone)}</p>
+    </div>
+    <div class="info-box">
+      <h3>Informasi Hewan</h3>
+      ${visit.pet ? `
+        <p><strong>${escapeHtml(visit.pet.name)}</strong></p>
+        <p>${escapeHtml(visit.pet.species)}${visit.pet.breed ? ` - ${escapeHtml(visit.pet.breed)}` : ""}</p>
+        ${visit.pet.weightKg ? `<p>Berat: ${visit.pet.weightKg} kg</p>` : ""}
+      ` : ""}
+    </div>
+  </div>
+
+  <div class="info-box" style="margin-bottom: 16px;">
+    <h3>Keluhan Utama</h3>
+    <p>${escapeHtml(visit.chiefComplaint)}</p>
+  </div>
+
+  ${visit.physicalExamNotes ? `
+  <div class="info-box" style="margin-bottom: 16px;">
+    <h3>Pemeriksaan Fisik</h3>
+    <p>${escapeHtml(visit.physicalExamNotes)}</p>
+  </div>` : ""}
+
+  <div class="info-box" style="margin-bottom: 16px;">
+    <h3>Diagnosa</h3>
+    <p>${escapeHtml(visit.diagnosis)}</p>
+  </div>
+
+  ${visit.treatmentNotes ? `
+  <div class="info-box" style="margin-bottom: 16px;">
+    <h3>Catatan Perawatan</h3>
+    <p>${escapeHtml(visit.treatmentNotes)}</p>
+  </div>` : ""}
+
+  ${(visit.weightKg || visit.temperature || visit.heartRate) ? `
+  <div class="info-box" style="margin-bottom: 16px;">
+    <h3>Tanda Vital</h3>
+    <p>
+      ${visit.weightKg ? `Berat: ${visit.weightKg} kg` : ""}
+      ${visit.weightKg && visit.temperature ? " | " : ""}
+      ${visit.temperature ? `Suhu: ${visit.temperature}°C` : ""}
+      ${visit.temperature && visit.heartRate ? " | " : ""}
+      ${visit.heartRate ? `Detak Jantung: ${visit.heartRate} bpm` : ""}
+    </p>
+  </div>` : ""}
+
+  <h3 style="margin-bottom: 8px;">Layanan & Obat</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Jenis</th>
+        <th>Nama</th>
+        <th class="text-right">Jumlah</th>
+        <th class="text-right">Harga Satuan</th>
+        <th class="text-right">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsHtml}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="row total"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
+  </div>
+
+  <div class="footer">
+    <p>Dicetak pada: ${formatDateTime(new Date())}</p>
+    <p style="margin-top: 4px;">${escapeHtml(companyInfo.name || "Klinik Hewan")}</p>
+  </div>
+</body>
+</html>`;
+}
+
+export async function generateReceiptHtml(orderId: string): Promise<string> {
+  const order = await prisma.posOrder.findUnique({
+    where: { id: orderId },
+    include: {
+      posOrderItems: {
+        include: { product: true },
+      },
+      customer: true,
+    },
+  });
+
+  if (!order) {
+    return `<html><body><h1>Pesanan tidak ditemukan</h1></body></html>`;
+  }
+
+  const companyInfo = await getCompanyInfo();
+
+  const itemsHtml = order.posOrderItems
+    .map(
+      (item) => `
+    <tr>
+      <td>${escapeHtml(item.product.name)}</td>
+      <td class="text-right">${item.quantity}</td>
+      <td class="text-right">${formatCurrency(Number(item.unitPrice))}</td>
+      <td class="text-right">${formatCurrency(Number(item.subtotal))}</td>
+    </tr>`
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Struk ${escapeHtml(order.orderNumber)}</title>
+  <style>
+    @page { margin: 10mm; size: 80mm auto; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Courier New', monospace; font-size: 11px; color: #1a1a1a; line-height: 1.4; width: 80mm; }
+    .header { text-align: center; border-bottom: 1px dashed #1a1a1a; padding-bottom: 8px; margin-bottom: 8px; }
+    .header h1 { font-size: 14px; }
+    .header p { font-size: 10px; }
+    .info { margin-bottom: 8px; }
+    .info p { font-size: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    th, td { padding: 2px 0; text-align: left; font-size: 10px; }
+    th { border-bottom: 1px dashed #1a1a1a; }
+    .text-right { text-align: right; }
+    .totals { border-top: 1px dashed #1a1a1a; padding-top: 4px; margin-top: 4px; }
+    .totals .row { display: flex; justify-content: space-between; font-size: 10px; padding: 1px 0; }
+    .totals .row.total { font-weight: bold; font-size: 12px; border-top: 1px dashed #1a1a1a; padding-top: 4px; margin-top: 4px; }
+    .footer { text-align: center; margin-top: 12px; border-top: 1px dashed #1a1a1a; padding-top: 8px; }
+    .footer p { font-size: 9px; }
+    .no-print { margin: 10px auto; text-align: center; }
+    .no-print button { padding: 6px 16px; background: #1a1a1a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button onclick="window.print()">Cetak Struk</button>
+  </div>
+
+  <div class="header">
+    <h1>${escapeHtml(companyInfo.name || "Klinik Hewan")}</h1>
+    <p>${escapeHtml(companyInfo.address || "")}</p>
+    <p>${escapeHtml(companyInfo.phone || "")}</p>
+    ${companyInfo.taxId ? `<p>NPWP: ${escapeHtml(companyInfo.taxId)}</p>` : ""}
+  </div>
+
+  <div class="info">
+    <p>No: ${escapeHtml(order.orderNumber)}</p>
+    <p>Tanggal: ${formatDateTime(order.createdAt)}</p>
+    ${order.customer ? `<p>Pelanggan: ${escapeHtml(order.customer.name)}</p>` : ""}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th class="text-right">Qty</th>
+        <th class="text-right">Harga</th>
+        <th class="text-right">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsHtml}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="row"><span>Subtotal</span><span>${formatCurrency(Number(order.subtotal))}</span></div>
+    ${Number(order.taxAmount) > 0 ? `<div class="row"><span>Pajak</span><span>${formatCurrency(Number(order.taxAmount))}</span></div>` : ""}
+    ${Number(order.discountAmount) > 0 ? `<div class="row"><span>Diskon</span><span>-${formatCurrency(Number(order.discountAmount))}</span></div>` : ""}
+    <div class="row total"><span>Total</span><span>${formatCurrency(Number(order.total))}</span></div>
+    <div class="row"><span>Bayar</span><span>${formatCurrency(Number(order.paymentAmount))}</span></div>
+    ${Number(order.changeAmount) > 0 ? `<div class="row"><span>Kembalian</span><span>${formatCurrency(Number(order.changeAmount))}</span></div>` : ""}
+  </div>
+
+  <div class="footer">
+    <p>Terima kasih atas kunjungan Anda</p>
+    ${companyInfo.receiptFooter ? `<p style="margin-top: 4px;">${escapeHtml(companyInfo.receiptFooter)}</p>` : ""}
+    <p style="margin-top: 4px;">${formatDateTime(new Date())}</p>
+  </div>
+</body>
+</html>`;
+}

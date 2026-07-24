@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ArrowLeft, Edit, CheckCircle } from "lucide-react";
+import { ArrowLeft, Edit, CheckCircle, Printer } from "lucide-react";
 import { CompleteVisitButton } from "./complete-visit-button";
 
 export default async function VisitDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,6 +40,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
         </div>
         <div className="ml-auto flex gap-2">
           <StatusBadge status={visit.status} />
+          <Link href={`/visits/${visit.id}/print`}><Button variant="outline" size="sm"><Printer className="mr-2 h-4 w-4" />Cetak</Button></Link>
           {visit.status === "DRAFT" && (
             <>
               <Link href={`/visits/${visit.id}/edit`}><Button variant="outline" size="sm"><Edit className="mr-2 h-4 w-4" />Edit</Button></Link>

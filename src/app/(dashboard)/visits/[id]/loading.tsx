@@ -1,0 +1,26 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function VisitDetailLoading() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-10 w-10" />
+        <div>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="mt-1 h-4 w-32" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-4">
+          <Skeleton className="h-40 w-full rounded-lg" />
+          <Skeleton className="h-48 w-full rounded-lg" />
+          <Skeleton className="h-48 w-full rounded-lg" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full rounded-lg" />
+          <Skeleton className="h-32 w-full rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}

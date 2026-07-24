@@ -548,3 +548,28 @@ export async function removeVisitItem(
 
   return { success: true, data: undefined };
 }
+
+export async function downloadVisitNotesPdf(visitId: string): Promise<ActionResult<string>> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "DOKTER"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+  if (!visit) {
+    return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  try {
+    const { generateVisitNotesHtml } = await import("../lib/pdf");
+    const html = await generateVisitNotesHtml(visitId);
+    return { success: true, data: html };
+  } catch (error) {
+    return { success: false, error: { message: "Gagal generate catatan kunjungan", code: "PDF_FAILED" } };
+  }
+}
