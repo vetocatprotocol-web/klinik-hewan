@@ -364,3 +364,62 @@ export async function completeBilling(id: string): Promise<ActionResult<string>>
 
   return { success: true, data: result.invoiceId };
 }
+
+export async function reopenBilling(id: string): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (role !== "OWNER") {
+    return { success: false, error: { message: "Hanya Owner yang bisa membuka kembali billing", code: "FORBIDDEN" } };
+  }
+
+  const billing = await prisma.billing.findUnique({ where: { id } });
+
+  if (!billing) {
+    return { success: false, error: { message: "Billing tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  if (billing.status !== "COMPLETED") {
+    return { success: false, error: { message: "Hanya billing COMPLETED yang bisa dibuka kembali", code: "BUSINESS_RULE" } };
+  }
+
+  const invoice = await prisma.invoice.findFirst({
+    where: { sourceType: "BILLING", sourceId: id },
+  });
+
+  if (invoice) {
+    const paidCount = await prisma.payment.count({
+      where: { payableType: "Invoice", payableId: invoice.id, status: "PAID" },
+    });
+    if (paidCount > 0) {
+      return { success: false, error: { message: "Tidak bisa membuka kembali billing yang sudah memiliki pembayaran", code: "BUSINESS_RULE" } };
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (invoice) {
+      await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.invoice.delete({ where: { id: invoice.id } });
+    }
+
+    await tx.billing.update({
+      where: { id },
+      data: { status: "OPEN", billingEndDate: null },
+    });
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "STATUS_CHANGE",
+    entityType: "Billing",
+    entityId: id,
+    changes: {
+      status: { old: "COMPLETED", new: "OPEN" },
+    },
+  });
+
+  return { success: true, data: undefined };
+}

@@ -78,7 +78,7 @@ export default async function PortalInvoicesPage({ searchParams }: PortalInvoice
                       <StatusBadge status={invoice.status} />
                     </div>
                     <Link
-                      href={`/invoices/${invoice.id}/print`}
+                      href={`/portal/invoices/${invoice.id}/print`}
                       target="_blank"
                       className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
                     >

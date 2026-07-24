@@ -68,10 +68,9 @@ export async function getPendingActions() {
       take: 5,
     }),
     prisma.product.findMany({
-      where: { status: "ACTIVE", currentStock: { lt: prisma.product.fields.reorderPoint } },
+      where: { status: "ACTIVE" },
       select: { id: true, name: true, currentStock: true, reorderPoint: true },
-      take: 5,
-    }),
+    }).then((products) => products.filter((p) => p.currentStock < p.reorderPoint).slice(0, 5)),
   ]);
 
   return { unpaidInvoices, incompleteVisits, lowStockProducts };

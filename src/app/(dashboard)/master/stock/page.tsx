@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchProducts } from "@/server/actions/queries";
+import { fetchProducts, fetchStockAdjustments } from "@/server/actions/queries";
 import { adjustStock } from "@/server/actions/stock";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { SearchInput } from "@/components/shared/search-input";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DataTable, type ColumnDef } from "@/components/data-table/data-table";
@@ -32,6 +33,7 @@ import {
   Package,
   Minus,
   Plus,
+  History,
 } from "lucide-react";
 
 interface ProductRow {
@@ -43,15 +45,32 @@ interface ProductRow {
   status: string;
 }
 
+interface StockAdjustmentRow {
+  id: string;
+  productId: string;
+  quantity: number;
+  reason: string;
+  notes: string | null;
+  referenceId: string | null;
+  createdBy: string;
+  createdAt: Date;
+  product: { id: string; name: string };
+  creator: { id: string; name: string };
+}
+
 const STOCK_REASONS = [
-  { value: "PURCHASE", label: "Pembelian" },
-  { value: "RETURN", label: "Retur" },
-  { value: "DAMAGED", label: "Rusak" },
-  { value: "EXPIRED", label: "Kadaluarsa" },
-  { value: "CORRECTION", label: "Koreksi Stok" },
+  { value: "INITIAL", label: "Stok Awal" },
   { value: "POS_SOLD", label: "Terjual via POS" },
+  { value: "BILLING_SOLD", label: "Terjual via Billing" },
+  { value: "DAMAGED", label: "Rusak" },
+  { value: "RETURN", label: "Retur" },
+  { value: "OPNAME_ADJUST", label: "Koreksi Opname" },
   { value: "OTHER", label: "Lainnya" },
 ];
+
+const STOCK_REASON_MAP = Object.fromEntries(
+  STOCK_REASONS.map((r) => [r.value, r.label])
+);
 
 export default function StockPage() {
   const [search, setSearch] = useState("");
@@ -69,6 +88,13 @@ export default function StockPage() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyProduct, setHistoryProduct] = useState<ProductRow | null>(null);
+  const [historyData, setHistoryData] = useState<StockAdjustmentRow[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -135,6 +161,39 @@ export default function StockPage() {
     }
   };
 
+  const openHistory = async (product: ProductRow) => {
+    setHistoryProduct(product);
+    setHistoryPage(1);
+    setHistoryDialogOpen(true);
+    setHistoryLoading(true);
+    try {
+      const result = await fetchStockAdjustments({
+        page: 1,
+        productId: product.id,
+      });
+      setHistoryData(result.data as StockAdjustmentRow[]);
+      setHistoryTotalPages(result.totalPages);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const loadHistoryPage = async (p: number) => {
+    if (!historyProduct) return;
+    setHistoryPage(p);
+    setHistoryLoading(true);
+    try {
+      const result = await fetchStockAdjustments({
+        page: p,
+        productId: historyProduct.id,
+      });
+      setHistoryData(result.data as StockAdjustmentRow[]);
+      setHistoryTotalPages(result.totalPages);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const lowStockCount = data.filter(
     (p) => p.currentStock <= p.reorderPoint
   ).length;
@@ -198,7 +257,15 @@ export default function StockPage() {
       header: "Aksi",
       className: "text-right",
       renderCell: (row) => (
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openHistory(row)}
+          >
+            <History className="mr-1 h-3 w-3" />
+            Riwayat
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -363,6 +430,89 @@ export default function StockPage() {
                 </Button>
               </DialogFooter>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Riwayat Penyesuaian Stok</DialogTitle>
+          </DialogHeader>
+          {historyProduct && (
+            <div className="space-y-4 overflow-auto flex-1">
+              <div className="rounded-lg bg-muted p-3">
+                <p className="font-medium">{historyProduct.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Stok saat ini: {historyProduct.currentStock}
+                </p>
+              </div>
+
+              {historyLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Memuat riwayat...</p>
+              ) : historyData.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Belum ada riwayat penyesuaian</p>
+              ) : (
+                <div className="space-y-2">
+                  {historyData.map((adj) => (
+                    <div key={adj.id} className="rounded-lg border p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              adj.quantity > 0
+                                ? "bg-green-100 text-green-800 border-green-200"
+                                : "bg-red-100 text-red-800 border-red-200"
+                            }
+                          >
+                            {adj.quantity > 0 ? "+" : ""}{adj.quantity}
+                          </Badge>
+                          <span className="font-medium">
+                            {STOCK_REASON_MAP[adj.reason] || adj.reason}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(adj.createdAt)}
+                        </span>
+                      </div>
+                      {adj.notes && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {adj.notes}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Oleh: {adj.creator?.name || "-"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {historyTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={historyPage <= 1 || historyLoading}
+                    onClick={() => loadHistoryPage(historyPage - 1)}
+                  >
+                    Sebelumnya
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Halaman {historyPage} dari {historyTotalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={historyPage >= historyTotalPages || historyLoading}
+                    onClick={() => loadHistoryPage(historyPage + 1)}
+                  >
+                    Berikutnya
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>

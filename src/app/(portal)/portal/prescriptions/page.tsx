@@ -69,13 +69,22 @@ export default async function PortalPrescriptionsPage() {
                       )}
                     </div>
                   </Link>
-                  <Link
-                    href={`/portal/prescriptions/${rx.id}`}
-                    className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
-                  >
-                    <Download className="h-3 w-3" />
-                    Lihat
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/portal/prescriptions/${rx.id}`}
+                      className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                    >
+                      Lihat
+                    </Link>
+                    <Link
+                      href={`/portal/prescriptions/${rx.id}/print`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 rounded-md bg-muted px-3 py-1.5 text-xs font-medium hover:bg-muted/80"
+                    >
+                      <Download className="h-3 w-3" />
+                      PDF
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -117,6 +117,12 @@ export default async function PortalPrescriptionDetailPage({ params }: PortalPre
             <Printer className="mr-2 h-4 w-4" />
             Cetak
           </Button>
+          <Link href={`/portal/prescriptions/${prescription.id}/print`} target="_blank">
+            <Button variant="outline" size="sm">
+              <Download className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
+          </Link>
         </div>
               </div>
               <div>

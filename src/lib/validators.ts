@@ -154,7 +154,9 @@ export const userSchema = z.object({
 export const stockAdjustmentSchema = z.object({
   productId: z.string().min(1, "Produk harus dipilih"),
   quantity: z.coerce.number().refine((val) => val !== 0, "Jumlah tidak boleh 0"),
-  reason: z.string().min(1, "Alasan harus diisi"),
+  reason: z.enum(["INITIAL", "POS_SOLD", "BILLING_SOLD", "DAMAGED", "RETURN", "OPNAME_ADJUST", "OTHER"], {
+    message: "Alasan harus dipilih",
+  }),
   notes: z.string().optional().or(z.literal("")),
 });
 

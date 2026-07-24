@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useActionState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { fetchBillingById, fetchActiveServices, fetchActiveDrugs, fetchActiveProducts } from "@/server/actions/queries";
-import { addBillingItem, removeBillingItem, completeBilling } from "@/server/actions/billings";
+import { addBillingItem, removeBillingItem, completeBilling, reopenBilling } from "@/server/actions/billings";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,6 +70,7 @@ interface MasterItem {
 export default function BillingDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const { data: session } = useSession();
   const id = params.id as string;
 
   const [billing, setBilling] = useState<BillingData | null>(null);
@@ -81,6 +83,8 @@ export default function BillingDetailPage() {
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
   const [addingItem, setAddingItem] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const isOwner = (session?.user as any)?.role === "OWNER";
 
   const fetchBilling = useCallback(async () => {
     setLoading(true);
@@ -148,6 +152,18 @@ export default function BillingDetailPage() {
       }
     } finally {
       setCompleting(false);
+    }
+  };
+
+  const handleReopen = async () => {
+    setReopening(true);
+    try {
+      const result = await reopenBilling(id);
+      if (result.success) {
+        await fetchBilling();
+      }
+    } finally {
+      setReopening(false);
     }
   };
 
@@ -289,6 +305,16 @@ export default function BillingDetailPage() {
                 <CheckCircle className="mr-2 h-4 w-4" />
               )}
               Selesaikan
+            </Button>
+          )}
+          {billing.status === "COMPLETED" && isOwner && (
+            <Button variant="outline" onClick={handleReopen} disabled={reopening}>
+              {reopening ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Buka Kembali
             </Button>
           )}
         </div>

@@ -72,7 +72,7 @@ export default async function PortalInvoiceDetailPage({ params }: PortalInvoiceD
             <Printer className="mr-2 h-4 w-4" />
             Cetak
           </Button>
-          <Link href={`/invoices/${invoice.id}/print`} target="_blank">
+          <Link href={`/portal/invoices/${invoice.id}/print`} target="_blank">
             <Button variant="outline" size="sm">
               <Download className="mr-2 h-4 w-4" />
               PDF
