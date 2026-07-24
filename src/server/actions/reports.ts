@@ -126,16 +126,17 @@ export async function getPaymentReport() {
   const role = (session.user as any).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
-  const unpaidInvoices = await client.invoice.findMany({
-    where: { status: { in: ["UNPAID", "PARTIAL"] } },
-    include: { customer: { select: { name: true } } },
-    orderBy: { invoiceDate: "asc" },
-  });
-
-  const allPayments = await client.payment.findMany({
-    where: { status: "PAID" },
-    orderBy: { createdAt: "desc" },
-  });
+  const [unpaidInvoices, allPayments] = await Promise.all([
+    client.invoice.findMany({
+      where: { status: { in: ["UNPAID", "PARTIAL"] } },
+      include: { customer: { select: { name: true } } },
+      orderBy: { invoiceDate: "asc" },
+    }),
+    client.payment.findMany({
+      where: { status: "PAID" },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   const byMethod = allPayments.reduce((acc, p) => {
     acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + Number(p.amount);

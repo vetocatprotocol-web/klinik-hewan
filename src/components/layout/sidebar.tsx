@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { cn, getInitials } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import {
@@ -56,13 +55,13 @@ interface SidebarProps {
   role: string;
   collapsed?: boolean;
   onToggle?: () => void;
+  userName?: string;
+  userImage?: string | null;
 }
 
-export function Sidebar({ role, collapsed = false, onToggle }: SidebarProps) {
+export function Sidebar({ role, collapsed = false, onToggle, userName, userImage }: SidebarProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
   const items = NAV_ITEMS[role as keyof typeof NAV_ITEMS] || [];
-  const user = session?.user;
 
   return (
     <aside
@@ -119,12 +118,12 @@ export function Sidebar({ role, collapsed = false, onToggle }: SidebarProps) {
       <div className="border-t p-3">
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.image || ""} alt={user?.name || ""} />
-            <AvatarFallback>{getInitials(user?.name || "U")}</AvatarFallback>
+            <AvatarImage src={userImage || ""} alt={userName || ""} />
+            <AvatarFallback>{getInitials(userName || "U")}</AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-sm font-medium truncate">{userName}</p>
               <p className="text-xs text-muted-foreground truncate capitalize">{role}</p>
             </div>
           )}

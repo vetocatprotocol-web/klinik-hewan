@@ -27,9 +27,8 @@ function getPrisma(): Promise<PrismaClient> {
   if (globalForPrisma.prisma) return Promise.resolve(globalForPrisma.prisma);
   if (!_prismaPromise) {
     _prismaPromise = createPrismaClient().then((client) => {
-      if (process.env.NODE_ENV !== "production") {
-        globalForPrisma.prisma = client;
-      }
+      // Cache in all environments to avoid cold-start reconnections
+      globalForPrisma.prisma = client;
       return client;
     });
   }

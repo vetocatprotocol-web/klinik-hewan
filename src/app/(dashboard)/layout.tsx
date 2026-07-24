@@ -1,49 +1,25 @@
-"use client";
+import { auth } from "@/server/lib/auth";
+import { redirect } from "next/navigation";
+import { DashboardShell } from "./dashboard-shell";
 
-import { useSession } from "next-auth/react";
-import { useState } from "react";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Navbar } from "@/components/layout/navbar";
-
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
-  const userRole = (session?.user as any)?.role as string;
-  const [collapsed, setCollapsed] = useState(false);
+  const session = await auth();
+  if (!session) redirect("/login");
 
-  if (status === "loading") {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (status === "unauthenticated" || !session) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="mb-2 font-medium">Sesi berakhir atau belum aktif</p>
-          <p className="text-sm text-muted-foreground">Silakan masuk kembali.</p>
-        </div>
-      </div>
-    );
-  }
+  const role = (session.user as any)?.role as string || "";
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        role={userRole || ""}
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((prev) => !prev)}
-      />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Navbar />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
-      </div>
-    </div>
+    <DashboardShell
+      role={role}
+      userName={session.user?.name || ""}
+      userEmail={session.user?.email || ""}
+      userImage={session.user?.image || null}
+    >
+      {children}
+    </DashboardShell>
   );
 }
