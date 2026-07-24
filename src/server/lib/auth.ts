@@ -18,16 +18,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        console.log("[AUTH] authorize called with:", { email: credentials?.email, hasPassword: !!credentials?.password });
+        if (!credentials?.email || !credentials?.password) {
+          console.log("[AUTH] No credentials provided");
+          return null;
+        }
 
-        const client = await getPrismaClient();
+        try {
+          const client = await getPrismaClient();
+          console.log("[AUTH] Prisma client obtained");
 
-        const user = await client.user.findUnique({
-          where: { email: credentials.email as string },
-          include: { role: true },
-        });
+          const user = await client.user.findUnique({
+            where: { email: credentials.email as string },
+            include: { role: true },
+          });
 
-        if (!user || user.status !== "ACTIVE") return null;
+          console.log("[AUTH] User found:", !!user, user ? { email: user.email, status: user.status, role: user.role?.name } : null);
+
+          if (!user || user.status !== "ACTIVE") return null;
 
         if (user.lockedUntil && user.lockedUntil > new Date()) {
           const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
@@ -45,6 +53,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           credentials.password as string,
           user.password
         );
+
+        console.log("[AUTH] Password valid:", isValid);
 
         if (!isValid) {
           const newAttempts = user.failedLoginAttempts + 1;
@@ -72,6 +82,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
         });
 
+        console.log("[AUTH] Login successful for:", user.email);
         return {
           id: user.id,
           name: user.name,
@@ -79,6 +90,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role.name,
           image: user.image,
         };
+        } catch (error) {
+          console.error("[AUTH] authorize error:", error);
+          return null;
+        }
       },
     }),
   ],
