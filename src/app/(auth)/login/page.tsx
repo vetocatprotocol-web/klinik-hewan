@@ -42,7 +42,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      setIsPending(false);
+      router.replace("/dashboard");
       router.refresh();
     } catch {
       setError("Terjadi kesalahan. Silakan coba lagi.");
