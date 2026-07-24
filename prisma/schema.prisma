@@ -483,6 +483,7 @@ model Payment {
   @@index([payableType, payableId])
   @@index([status])
   @@index([createdAt])
+  @@index([status, createdAt])
   @@map("payments")
 }
 

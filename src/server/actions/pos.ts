@@ -139,49 +139,48 @@ export async function removePosItem(
     return { success: false, error: { message: "Item tidak ditemukan dalam pesanan ini", code: "NOT_FOUND" } };
   }
 
-  // Restore stock for the product
-  if (orderItem.productId) {
-    await client.product.update({
-      where: { id: orderItem.productId },
-      data: { currentStock: { increment: orderItem.quantity } },
-    });
+  // Restore stock, delete item, and recalculate totals in a single transaction
+  const userId = session.user.id!;
+  await client.$transaction(async (tx) => {
+    if (orderItem.productId) {
+      await tx.product.update({
+        where: { id: orderItem.productId },
+        data: { currentStock: { increment: orderItem.quantity } },
+      });
 
-    await client.stockAdjustment.create({
-      data: {
-        productId: orderItem.productId,
-        quantity: orderItem.quantity,
-        reason: "RETURN",
-        referenceId: orderId,
-        notes: "Pengembalian stok karena item POS dihapus dari keranjang",
-        createdBy: session.user.id!,
-      },
-    });
-  }
-
-  await client.posOrderItem.delete({ where: { id: itemId } });
-
-  // Update order totals
-  const items = await client.posOrderItem.findMany({ where: { posOrderId: orderId } });
-  const orderSubtotal = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
-
-  const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
-  const taxConfig = taxSetting?.value as any;
-  let taxAmount = 0;
-  if (taxConfig?.enabled) {
-    if (taxConfig.type === "PERCENTAGE") {
-      taxAmount = orderSubtotal * (taxConfig.value / 100);
-    } else {
-      taxAmount = taxConfig.value;
+      await tx.stockAdjustment.create({
+        data: {
+          productId: orderItem.productId,
+          quantity: orderItem.quantity,
+          reason: "RETURN",
+          referenceId: orderId,
+          notes: "Pengembalian stok karena item POS dihapus dari keranjang",
+          createdBy: userId,
+        },
+      });
     }
-  }
 
-  await client.posOrder.update({
-    where: { id: orderId },
-    data: {
-      subtotal: orderSubtotal,
-      taxAmount,
-      total: orderSubtotal + taxAmount,
-    },
+    await tx.posOrderItem.delete({ where: { id: itemId } });
+
+    // Use SQL aggregation instead of fetching all items
+    const result: any[] = await tx.$queryRaw`
+      SELECT COALESCE(SUM(subtotal), 0)::numeric as total FROM pos_order_items WHERE pos_order_id = ${orderId}
+    `;
+    const orderSubtotal = Number(result[0]?.total || 0);
+
+    const taxSetting = await tx.setting.findUnique({ where: { key: "tax_config" } });
+    const taxConfig = taxSetting?.value as any;
+    let taxAmount = 0;
+    if (taxConfig?.enabled) {
+      taxAmount = taxConfig.type === "PERCENTAGE"
+        ? Math.round(orderSubtotal * (taxConfig.value / 100))
+        : taxConfig.value;
+    }
+
+    await tx.posOrder.update({
+      where: { id: orderId },
+      data: { subtotal: orderSubtotal, taxAmount, total: orderSubtotal + taxAmount },
+    });
   });
 
   return { success: true, data: undefined };

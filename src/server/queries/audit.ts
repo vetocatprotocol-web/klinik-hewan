@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { cached } from "../lib/cache";
 import { PAGE_SIZE } from "@/lib/constants";
 
 export async function getAuditLogs({
@@ -14,26 +15,29 @@ export async function getAuditLogs({
   dateFrom?: string;
   dateTo?: string;
 } = {}) {
-  const client = await prisma();
-  const where: any = {};
-  if (action) where.action = action;
-  if (entityType) where.entityType = entityType;
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
-  }
+  const cacheKey = `audit:${page}:${action}:${entityType}:${dateFrom}:${dateTo}`;
+  return cached(cacheKey, async () => {
+    const client = await prisma();
+    const where: any = {};
+    if (action) where.action = action;
+    if (entityType) where.entityType = entityType;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) where.createdAt.lte = new Date(dateTo);
+    }
 
-  const [data, total] = await Promise.all([
-    client.auditLog.findMany({
-      where,
-      include: { user: { select: { id: true, name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    client.auditLog.count({ where }),
-  ]);
+    const [data, total] = await Promise.all([
+      client.auditLog.findMany({
+        where,
+        include: { user: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+      }),
+      client.auditLog.count({ where }),
+    ]);
 
-  return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
+    return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
+  }, 10_000);
 }

@@ -109,8 +109,7 @@ describe("Customer Actions", () => {
         user: { id: "user-1", role: "OWNER" },
       } as any);
       (mockPrisma.customer.findFirst as any)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ id: "existing", phone: "081234567890" });
+        .mockResolvedValueOnce({ id: "existing", phone: "081234567890", name: "Someone Else" });
 
       const formData = createFormData({
         name: "Jane Doe",

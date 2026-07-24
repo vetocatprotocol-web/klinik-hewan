@@ -21,7 +21,7 @@ export async function getDailyReport(date?: string) {
     client.visit.findMany({
       where: { createdAt: { gte: startOfDay, lt: endOfDay } },
       include: {
-        visitItems: true,
+        _count: { select: { visitItems: true } },
         customer: { select: { name: true } },
         pet: { select: { name: true } },
       },
@@ -84,8 +84,9 @@ export async function getInventoryReport() {
     orderBy: { name: "asc" },
   });
 
-  const lowStock = products.filter((p) => p.status === "ACTIVE" && p.currentStock < p.reorderPoint);
-  const outOfStock = products.filter((p) => p.status === "ACTIVE" && p.currentStock === 0);
+  const activeProducts = products.filter((p) => p.status === "ACTIVE");
+  const lowStock = activeProducts.filter((p) => p.currentStock < p.reorderPoint);
+  const outOfStock = activeProducts.filter((p) => p.currentStock === 0);
 
   return { products, lowStock, outOfStock, totalProducts: products.length };
 }
@@ -98,24 +99,31 @@ export async function getCustomerReport() {
   const role = (session.user as any).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
-  const customers = await client.customer.findMany({
-    where: { status: "ACTIVE" },
-    include: {
-      visits: { select: { id: true, createdAt: true } },
-      invoices: { select: { id: true, total: true, paidAmount: true } },
-    },
-  });
+  // Use SQL aggregation instead of fetching all relations
+  const customerStats: any[] = await client.$queryRaw`
+    SELECT
+      c.id,
+      c.name,
+      c.phone,
+      COUNT(DISTINCT v.id)::int as "visitCount",
+      COALESCE(SUM(DISTINCT i.paid_amount), 0)::numeric as "totalSpend",
+      MAX(v.created_at) as "lastVisit"
+    FROM customers c
+    LEFT JOIN visits v ON v.customer_id = c.id
+    LEFT JOIN invoices i ON i.customer_id = c.id AND i.status = 'PAID'
+    WHERE c.status = 'ACTIVE'
+    GROUP BY c.id, c.name, c.phone
+    ORDER BY "visitCount" DESC
+  `;
 
-  const customerStats = customers.map((c) => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    visitCount: c.visits.length,
-    totalSpend: c.invoices.reduce((sum, inv) => sum + Number(inv.paidAmount), 0),
-    lastVisit: c.visits.length > 0 ? c.visits.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0].createdAt : null,
-  }));
-
-  return { customers: customerStats, totalCustomers: customers.length };
+  return {
+    customers: customerStats.map((c) => ({
+      ...c,
+      totalSpend: Number(c.totalSpend),
+      lastVisit: c.lastVisit ? new Date(c.lastVisit) : null,
+    })),
+    totalCustomers: customerStats.length,
+  };
 }
 
 export async function getPaymentReport() {

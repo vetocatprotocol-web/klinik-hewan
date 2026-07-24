@@ -55,27 +55,25 @@ export async function createCustomer(
   }
 
   // PRD 8.2.1: "Duplicate check based on exact name + phone combination"
+  // Also check phone uniqueness (DB enforces @unique, but we want a friendly error)
   const existing = await client.customer.findFirst({
-    where: { 
-      name: { equals: data.name, mode: "insensitive" },
-      phone: data.phone 
+    where: {
+      OR: [
+        { name: { equals: data.name, mode: "insensitive" }, phone: data.phone },
+        { phone: data.phone },
+      ],
     },
   });
   if (existing) {
+    const isExactMatch = existing.name.toLowerCase() === data.name.toLowerCase() && existing.phone === data.phone;
     return {
       success: false,
-      error: { message: "Pelanggan dengan nama dan nomor HP yang sama sudah terdaftar", field: "phone" },
-    };
-  }
-
-  // Also check phone uniqueness independently (DB constraint)
-  const phoneExists = await client.customer.findFirst({
-    where: { phone: data.phone },
-  });
-  if (phoneExists) {
-    return {
-      success: false,
-      error: { message: "Nomor HP sudah terdaftar", field: "phone" },
+      error: {
+        message: isExactMatch
+          ? "Pelanggan dengan nama dan nomor HP yang sama sudah terdaftar"
+          : "Nomor HP sudah terdaftar",
+        field: "phone",
+      },
     };
   }
 
