@@ -96,7 +96,6 @@ export const NAV_ITEMS = {
     { label: "Pelanggan", href: "/customers", icon: "Users" },
     { label: "Kunjungan", href: "/visits", icon: "Stethoscope" },
     { label: "Billing", href: "/billings", icon: "FileText" },
-    { label: "Invoice", href: "/invoices", icon: "Receipt" },
   ],
   KASIR: [
     { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },

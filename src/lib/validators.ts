@@ -5,6 +5,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password harus diisi"),
 });
 
+export const passwordComplexitySchema = z.string()
+  .min(8, "Password minimal 8 karakter")
+  .regex(/[A-Z]/, "Password harus mengandung huruf besar")
+  .regex(/[a-z]/, "Password harus mengandung huruf kecil")
+  .regex(/[0-9]/, "Password harus mengandung angka");
+
 export const customerSchema = z.object({
   name: z.string().min(1, "Nama harus diisi").max(255),
   phone: z

@@ -35,22 +35,22 @@ let lastCleanup = Date.now();
 
 const ROLE_PREFIXES: Record<string, string[]> = {
   OWNER: [],
-  DOKTER: ["/visits", "/customers", "/billings"],
+  DOKTER: ["/visits", "/customers", "/billings", "/invoices"],
   KASIR: ["/pos", "/invoices", "/customers", "/billings"],
-  ADMIN: ["/master/stock", "/reports"],
+  ADMIN: ["/customers", "/visits", "/master/stock", "/reports"],
   CUSTOMER: ["/portal"],
 };
 
 function canAccessRoute(role: string, pathname: string): boolean {
   if (role === "OWNER") return true;
 
+  if (pathname.startsWith("/portal")) {
+    return role === "CUSTOMER";
+  }
+
   const allowedPrefixes = ROLE_PREFIXES[role] || [];
   for (const prefix of allowedPrefixes) {
     if (pathname.startsWith(prefix)) return true;
-  }
-
-  if (pathname.startsWith("/portal") && role !== "CUSTOMER") {
-    return true;
   }
 
   if (pathname === "/dashboard" || pathname === "/notifications") {

@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Download } from "lucide-react";
 import Link from "next/link";
 
 interface PortalInvoiceDetailPageProps {
@@ -72,6 +72,12 @@ export default async function PortalInvoiceDetailPage({ params }: PortalInvoiceD
             <Printer className="mr-2 h-4 w-4" />
             Cetak
           </Button>
+          <Link href={`/invoices/${invoice.id}/print`} target="_blank">
+            <Button variant="outline" size="sm">
+              <Download className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
+          </Link>
         </div>
       </div>
 

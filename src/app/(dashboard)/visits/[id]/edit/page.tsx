@@ -113,6 +113,8 @@ export default function EditVisitPage() {
   const [drugs, setDrugs] = useState<DrugOption[]>([]);
   const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
   const [selectedDrugs, setSelectedDrugs] = useState<SelectedDrug[]>([]);
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [drugSearch, setDrugSearch] = useState("");
 
   useEffect(() => {
     async function fetchData() {
@@ -408,12 +410,12 @@ export default function EditVisitPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="visitDate">Tanggal Kunjungan *</Label>
+                <Label htmlFor="visitDate">Tanggal & Waktu Kunjungan *</Label>
                 <Input
                   id="visitDate"
-                  type="date"
+                  type="datetime-local"
                   {...register("visitDate")}
-                  defaultValue={visit.visitDate.split("T")[0]}
+                  defaultValue={visit.visitDate.slice(0, 16)}
                 />
                 {errors.visitDate && (
                   <p className="text-xs text-destructive">{errors.visitDate.message}</p>
@@ -502,7 +504,18 @@ export default function EditVisitPage() {
             <CardDescription>Pilih layanan yang diberikan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {services.map((service) => {
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari layanan..."
+                value={serviceSearch}
+                onChange={(e) => setServiceSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            {services
+              .filter((s) => !serviceSearch || s.name.toLowerCase().includes(serviceSearch.toLowerCase()) || s.category.toLowerCase().includes(serviceSearch.toLowerCase()))
+              .map((service) => {
               const isSelected = selectedServices.some((s) => s.serviceId === service.id);
               const selected = selectedServices.find((s) => s.serviceId === service.id);
               return (
@@ -541,7 +554,18 @@ export default function EditVisitPage() {
             <CardDescription>Pilih obat yang diberikan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {drugs.map((drug) => {
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Cari obat..."
+                value={drugSearch}
+                onChange={(e) => setDrugSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            {drugs
+              .filter((d) => !drugSearch || d.name.toLowerCase().includes(drugSearch.toLowerCase()) || d.unit.toLowerCase().includes(drugSearch.toLowerCase()))
+              .map((drug) => {
               const isSelected = selectedDrugs.some((d) => d.drugId === drug.id);
               const selected = selectedDrugs.find((d) => d.drugId === drug.id);
               return (

@@ -443,7 +443,18 @@ export default function ReportsPage() {
               {revenueByMethod.length > 0 && (
                 <div>
                   <h3 className="mb-2 font-medium">Pendapatan per Metode</h3>
-                  <div className="space-y-2">
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={revenueByMethod}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="method" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Pendapatan"]} />
+                        <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-2 mt-2">
                     {revenueByMethod.map((r) => (
                       <div
                         key={r.method}

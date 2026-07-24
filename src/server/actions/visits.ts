@@ -18,8 +18,8 @@ export async function createVisit(
   }
 
   const role = (session.user as any).role;
-  if (!["OWNER", "DOKTER"].includes(role)) {
-    return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa membuat kunjungan", code: "FORBIDDEN" } };
+  if (role !== "DOKTER") {
+    return { success: false, error: { message: "Hanya Dokter yang bisa membuat kunjungan", code: "FORBIDDEN" } };
   }
 
   const servicesJson = formData.get("services") as string;
