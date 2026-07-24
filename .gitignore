@@ -52,3 +52,4 @@ CLAUDE.md
 supabase/.temp/
 .env.local
 .env.vercel
+package-lock.json
