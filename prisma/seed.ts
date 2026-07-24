@@ -158,6 +158,60 @@ async function main() {
     },
   });
 
+  // Seed default users for all roles
+  await prisma.user.upsert({
+    where: { email: "dokter@klinik.com" },
+    update: {},
+    create: {
+      name: "Dr. Hewan",
+      email: "dokter@klinik.com",
+      phone: "081234567891",
+      password: hashedPassword,
+      roleId: dokterRole.id,
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "kasir@klinik.com" },
+    update: {},
+    create: {
+      name: "Kasir Klinik",
+      email: "kasir@klinik.com",
+      phone: "081234567892",
+      password: hashedPassword,
+      roleId: kasirRole.id,
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "admin1@klinik.com" },
+    update: {},
+    create: {
+      name: "Admin Klinik",
+      email: "admin1@klinik.com",
+      phone: "081234567893",
+      password: hashedPassword,
+      roleId: adminRole.id,
+      status: "ACTIVE",
+    },
+  });
+
+  const customerRole = roles.find((r) => r.name === "CUSTOMER")!;
+  await prisma.user.upsert({
+    where: { email: "pelanggan@klinik.com" },
+    update: {},
+    create: {
+      name: "Pelanggan Klinik",
+      email: "pelanggan@klinik.com",
+      phone: "081234567894",
+      password: hashedPassword,
+      roleId: customerRole.id,
+      status: "ACTIVE",
+    },
+  });
+
   // Seed default services
   const services = [
     { name: "Konsultasi Umum", category: "KONSULTASI" as ServiceCategory, price: 100000, description: "Konsultasi umum dengan dokter hewan" },

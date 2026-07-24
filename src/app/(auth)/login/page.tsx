@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, useSession, getSession } from "next-auth/react";
 import Link from "next/link";
 import { Loader2, PawPrint } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,18 +16,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+function getDashboardPath(role?: string): string {
+  if (role === "CUSTOMER") return "/portal/dashboard";
+  return "/dashboard";
+}
+
 export default function LoginPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      window.location.href = "/dashboard";
+    if (status === "authenticated" && session) {
+      const role = (session.user as any)?.role;
+      window.location.href = getDashboardPath(role);
     }
-  }, [status]);
+  }, [status, session]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,9 +53,10 @@ export default function LoginPage() {
         return;
       }
 
-      // Login succeeded — redirect immediately.
-      // Don't wait for useSession to update; the cookie is already set.
-      window.location.href = "/dashboard";
+      // Login succeeded — fetch session to determine role-based redirect.
+      const newSession = await getSession();
+      const role = (newSession?.user as any)?.role;
+      window.location.href = getDashboardPath(role);
     } catch {
       setError("Terjadi kesalahan. Silakan coba lagi.");
       setIsPending(false);

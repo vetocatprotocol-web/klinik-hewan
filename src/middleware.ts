@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
-import { getAuthSecret } from "@/server/lib/auth-secret";
+import { auth } from "@/server/lib/auth";
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
@@ -61,16 +60,6 @@ function canAccessRoute(role: string, pathname: string): boolean {
   return false;
 }
 
-async function decodeToken(token: string): Promise<{ role?: string } | null> {
-  try {
-    const secret = new TextEncoder().encode(getAuthSecret());
-    const { payload } = await jwtVerify(token, secret);
-    return payload as { role?: string };
-  } catch {
-    return null;
-  }
-}
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -112,23 +101,18 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const token = request.cookies.get("authjs.session-token")?.value ||
-    request.cookies.get("__Secure-authjs.session-token")?.value;
+  // Use NextAuth's auth() to properly decrypt and verify the session token
+  const session = await auth();
+  const role = (session?.user as any)?.role as string | undefined;
 
-  if (!token) {
+  if (!session?.user || !role) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  const payload = await decodeToken(token);
-  if (!payload?.role) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  if (!canAccessRoute(payload.role, pathname)) {
-    if (pathname.startsWith("/portal")) {
+  if (!canAccessRoute(role, pathname)) {
+    if (role === "CUSTOMER") {
       return NextResponse.redirect(new URL("/portal/dashboard", request.url));
     }
     return NextResponse.redirect(new URL("/dashboard", request.url));
