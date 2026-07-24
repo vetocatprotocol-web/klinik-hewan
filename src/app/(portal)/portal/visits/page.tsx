@@ -1,5 +1,6 @@
 import { auth } from "@/server/lib/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import prisma from "@/server/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -49,37 +50,39 @@ export default async function PortalVisitsPage() {
       ) : (
         <div className="space-y-3">
           {visits.map((visit: { id: string; visitNumber: string; visitDate: Date; status: string; diagnosis: string | null; pet: { name: string; species: string }; visitItems: { id: string; subtotal: unknown; service: { name: string } | null }[] }) => (
-            <Card key={visit.id}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="font-medium">{visit.visitNumber}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(visit.visitDate)}
-                    </p>
-                    <p className="text-sm">
-                      {visit.pet.name} ({visit.pet.species})
-                    </p>
-                    {visit.diagnosis && (
+            <Link key={visit.id} href={`/portal/visits/${visit.id}`}>
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <p className="font-medium">{visit.visitNumber}</p>
                       <p className="text-sm text-muted-foreground">
-                        {visit.diagnosis}
+                        {formatDate(visit.visitDate)}
                       </p>
-                    )}
-                    {visit.visitItems.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {visit.visitItems.map((item: any) => (
-                          <p key={item.id} className="text-xs text-muted-foreground">
-                            - {item.service?.name || "Layanan"}
-                            {item.subtotal ? ` (${formatCurrency(Number(item.subtotal))})` : ""}
-                          </p>
-                        ))}
-                      </div>
-                    )}
+                      <p className="text-sm">
+                        {visit.pet.name} ({visit.pet.species})
+                      </p>
+                      {visit.diagnosis && (
+                        <p className="text-sm text-muted-foreground">
+                          {visit.diagnosis}
+                        </p>
+                      )}
+                      {visit.visitItems.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {visit.visitItems.map((item: any) => (
+                            <p key={item.id} className="text-xs text-muted-foreground">
+                              - {item.service?.name || "Layanan"}
+                              {item.subtotal ? ` (${formatCurrency(Number(item.subtotal))})` : ""}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <StatusBadge status={visit.status} />
                   </div>
-                  <StatusBadge status={visit.status} />
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

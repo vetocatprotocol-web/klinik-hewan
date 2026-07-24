@@ -55,6 +55,9 @@ interface SelectedService {
 interface SelectedDrug {
   drugId: string;
   quantity: number;
+  dosage: string;
+  durationDays: string;
+  instructions: string;
 }
 
 interface VisitData {
@@ -141,7 +144,13 @@ export default function EditVisitPage() {
           setSelectedDrugs(
             v.visitItems
               .filter((item: any) => item.itemType === "DRUG" && item.drugId)
-              .map((item: any) => ({ drugId: item.drugId, quantity: item.quantity }))
+              .map((item: any) => ({
+                drugId: item.drugId,
+                quantity: item.quantity,
+                dosage: item.dosage || "",
+                durationDays: item.durationDays ? String(item.durationDays) : "",
+                instructions: item.instructions || "",
+              }))
           );
         }
       } finally {
@@ -200,13 +209,19 @@ export default function EditVisitPage() {
     setSelectedDrugs((prev) => {
       const exists = prev.find((d) => d.drugId === drugId);
       if (exists) return prev.filter((d) => d.drugId !== drugId);
-      return [...prev, { drugId, quantity: 1 }];
+      return [...prev, { drugId, quantity: 1, dosage: "", durationDays: "", instructions: "" }];
     });
   };
 
   const updateDrugQty = (drugId: string, quantity: number) => {
     setSelectedDrugs((prev) =>
       prev.map((d) => (d.drugId === drugId ? { ...d, quantity } : d))
+    );
+  };
+
+  const updateDrugField = (drugId: string, field: string, value: string) => {
+    setSelectedDrugs((prev) =>
+      prev.map((d) => (d.drugId === drugId ? { ...d, [field]: value } : d))
     );
   };
 
@@ -542,15 +557,44 @@ export default function EditVisitPage() {
                     </p>
                   </div>
                   {isSelected && (
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs">Qty:</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={selected?.quantity || 1}
-                        onChange={(e) => updateDrugQty(drug.id, Number(e.target.value))}
-                        className="h-8 w-16"
-                      />
+                    <div className="flex-1 space-y-2 mt-2 ml-8">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs w-16">Qty:</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={selected?.quantity || 1}
+                          onChange={(e) => updateDrugQty(drug.id, Number(e.target.value))}
+                          className="h-8 w-16"
+                        />
+                        <Label className="text-xs w-16">Dosis:</Label>
+                        <Input
+                          type="text"
+                          value={selected?.dosage || ""}
+                          onChange={(e) => updateDrugField(drug.id, "dosage", e.target.value)}
+                          className="h-8 flex-1"
+                          placeholder="contoh: 1 tablet 3x sehari"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs w-16">Durasi:</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={selected?.durationDays || ""}
+                          onChange={(e) => updateDrugField(drug.id, "durationDays", e.target.value)}
+                          className="h-8 w-20"
+                          placeholder="hari"
+                        />
+                        <Label className="text-xs w-16">Instruksi:</Label>
+                        <Input
+                          type="text"
+                          value={selected?.instructions || ""}
+                          onChange={(e) => updateDrugField(drug.id, "instructions", e.target.value)}
+                          className="h-8 flex-1"
+                          placeholder="contoh: diminum setelah makan"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

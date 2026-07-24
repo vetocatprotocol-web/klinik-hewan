@@ -59,6 +59,9 @@ export async function adjustStock(
     }),
   ]);
 
+  const { checkLowStock } = await import("../lib/notifications");
+  await checkLowStock(data.productId);
+
   await createAuditLog({
     userId: session.user.id,
     action: "UPDATE",

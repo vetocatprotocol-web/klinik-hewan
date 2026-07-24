@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchInvoices, fetchProducts } from "@/server/actions/queries";
+import { fetchInvoices, fetchProducts, fetchPosOrders } from "@/server/actions/queries";
 import { fetchVisits } from "@/server/actions/queries";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -19,6 +19,15 @@ import {
   CreditCard,
   AlertTriangle,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface VisitRow {
   id: string;
@@ -40,6 +49,7 @@ interface InvoiceRow {
   status: string;
   customer: { id: string; name: string };
   payments: { paymentMethod: string; amount: number }[];
+  invoiceItems: { itemName: string; subtotal: number }[];
 }
 
 interface ProductRow {
@@ -52,8 +62,19 @@ interface ProductRow {
   category?: { name: string };
 }
 
+function escapeCsvField(field: string | number): string {
+  const str = String(field);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 function exportCsv(headers: string[], rows: (string | number)[][], filename: string) {
-  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  const csv = [
+    headers.map(escapeCsvField).join(","),
+    ...rows.map((r) => r.map(escapeCsvField).join(",")),
+  ].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -70,7 +91,7 @@ export default function ReportsPage() {
   const [dailyDate, setDailyDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [dailyVisits, setDailyVisits] = useState<VisitRow[]>([]);
   const [dailyRevenue, setDailyRevenue] = useState(0);
-  const [dailyTopServices, setDailyTopServices] = useState<{ name: string; count: number }[]>([]);
+  const [dailyTopServices, setDailyTopServices] = useState<{ name: string; visitCount: number }[]>([]);
 
   const [revenueDateFrom, setRevenueDateFrom] = useState("");
   const [revenueDateTo, setRevenueDateTo] = useState("");
@@ -80,7 +101,9 @@ export default function ReportsPage() {
   const [inventoryProducts, setInventoryProducts] = useState<ProductRow[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<ProductRow[]>([]);
 
-  const [customerStats, setCustomerStats] = useState<{ name: string; count: number }[]>([]);
+  const [customerStats, setCustomerStats] = useState<
+    { name: string; visitCount: number; totalSpend: number; lastVisit: string }[]
+  >([]);
 
   const [paymentInvoices, setPaymentInvoices] = useState<InvoiceRow[]>([]);
   const [paymentByMethod, setPaymentByMethod] = useState<{ method: string; total: number }[]>([]);
@@ -107,8 +130,8 @@ export default function ReportsPage() {
         });
       });
       const topServices = Object.entries(serviceCount)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
+        .map(([name, visitCount]) => ({ name, visitCount }))
+        .sort((a, b) => b.visitCount - a.visitCount)
         .slice(0, 5);
       setDailyTopServices(topServices);
     } finally {
@@ -137,7 +160,17 @@ export default function ReportsPage() {
           .sort((a, b) => b.total - a.total)
       );
 
-      setRevenueByService([]);
+      const byService: Record<string, number> = {};
+      invoices.forEach((inv) => {
+        inv.invoiceItems.forEach((item) => {
+          byService[item.itemName] = (byService[item.itemName] || 0) + Number(item.subtotal);
+        });
+      });
+      setRevenueByService(
+        Object.entries(byService)
+          .map(([name, total]) => ({ name, total }))
+          .sort((a, b) => b.total - a.total)
+      );
     } finally {
       setLoading(false);
     }
@@ -158,19 +191,40 @@ export default function ReportsPage() {
   const fetchCustomerReport = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await fetchInvoices({});
-      const invoices = result.data as unknown as InvoiceRow[];
-      const customerCount: Record<string, { name: string; count: number }> = {};
+      const [visitResult, invoiceResult] = await Promise.all([
+        fetchVisits({ page: 1 }),
+        fetchInvoices({}),
+      ]);
+      const visits = visitResult.data as unknown as VisitRow[];
+      const invoices = invoiceResult.data as unknown as InvoiceRow[];
+
+      const customerData: Record<string, { name: string; visitCount: number; totalSpend: number; lastVisit: string }> = {};
+      
+      visits.forEach((v) => {
+        const id = v.customer.id;
+        if (!customerData[id]) {
+          customerData[id] = { name: v.customer.name, visitCount: 0, totalSpend: 0, lastVisit: "" };
+        }
+        customerData[id].visitCount++;
+        const visitDate = v.visitDate;
+        if (!customerData[id].lastVisit || visitDate > customerData[id].lastVisit) {
+          customerData[id].lastVisit = visitDate;
+        }
+      });
+
       invoices.forEach((inv) => {
         const id = inv.customer.id;
-        if (!customerCount[id]) {
-          customerCount[id] = { name: inv.customer.name, count: 0 };
+        if (!customerData[id]) {
+          customerData[id] = { name: inv.customer.name, visitCount: 0, totalSpend: 0, lastVisit: "" };
         }
-        customerCount[id].count++;
+        if (inv.status === "PAID") {
+          customerData[id].totalSpend += Number(inv.total);
+        }
       });
-      const stats = Object.values(customerCount)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10) as { name: string; count: number }[];
+
+      const stats = Object.values(customerData)
+        .sort((a, b) => b.visitCount - a.visitCount)
+        .slice(0, 10);
       setCustomerStats(stats);
     } finally {
       setLoading(false);
@@ -225,6 +279,11 @@ export default function ReportsPage() {
   const exportRevenueCsv = () => {
     const headers = ["Metode", "Total Pendapatan"];
     const rows = revenueByMethod.map((r) => [r.method, r.total]);
+    if (revenueByService.length > 0) {
+      rows.push(["", ""]);
+      rows.push(["--- Per Layanan/Produk ---", ""]);
+      revenueByService.forEach((r) => rows.push([r.name, String(r.total)]));
+    }
     exportCsv(headers, rows, `laporan-pendapatan.csv`);
   };
 
@@ -242,8 +301,8 @@ export default function ReportsPage() {
   };
 
   const exportCustomersCsv = () => {
-    const headers = ["Nama Pelanggan", "Jumlah Kunjungan"];
-    const rows = customerStats.map((c) => [c.name, c.count]);
+    const headers = ["Nama Pelanggan", "Jumlah Kunjungan", "Total Belanja", "Kunjungan Terakhir"];
+    const rows = customerStats.map((c) => [c.name, String(c.visitCount), String(c.totalSpend), c.lastVisit ? formatDate(c.lastVisit) : "-"]);
     exportCsv(headers, rows, `laporan-pelanggan.csv`);
   };
 
@@ -340,7 +399,7 @@ export default function ReportsPage() {
                         className="flex items-center justify-between rounded border p-2"
                       >
                         <span className="text-sm">{s.name}</span>
-                        <span className="text-sm font-medium">{s.count}x</span>
+                        <span className="text-sm font-medium">{s.visitCount}x</span>
                       </div>
                     ))}
                   </div>
@@ -394,6 +453,22 @@ export default function ReportsPage() {
                           <CreditCard className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">{r.method}</span>
                         </div>
+                        <span className="font-medium">{formatCurrency(r.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {revenueByService.length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-medium">Pendapatan per Layanan/Produk</h3>
+                  <div className="space-y-2">
+                    {revenueByService.map((r) => (
+                      <div
+                        key={r.name}
+                        className="flex items-center justify-between rounded border p-3"
+                      >
+                        <span className="text-sm">{r.name}</span>
                         <span className="font-medium">{formatCurrency(r.total)}</span>
                       </div>
                     ))}
@@ -485,11 +560,16 @@ export default function ReportsPage() {
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
                           {i + 1}
                         </span>
-                        <span className="text-sm font-medium">{c.name}</span>
+                        <div>
+                          <span className="text-sm font-medium">{c.name}</span>
+                          <div className="flex gap-4 text-xs text-muted-foreground">
+                            <span>{c.visitCount} kunjungan</span>
+                            {c.totalSpend > 0 && <span>Total belanja: {formatCurrency(c.totalSpend)}</span>}
+                            {c.lastVisit && <span>Kunjungan terakhir: {formatDate(c.lastVisit)}</span>}
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        {c.count} kunjungan
-                      </span>
+                      <StatusBadge status={c.visitCount > 5 ? "ACTIVE" : "INACTIVE"} />
                     </div>
                   ))
                 )}

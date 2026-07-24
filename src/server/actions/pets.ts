@@ -35,9 +35,20 @@ export async function createPet(
     };
   }
 
+  // Verify customer exists
   const customer = await prisma.customer.findUnique({ where: { id: customerId } });
   if (!customer) {
     return { success: false, error: { message: "Pelanggan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  // Authorization: staff can add pets to any customer, portal users only to own customer record
+  const role = (session.user as any).role;
+  const staffRoles = ["OWNER", "DOKTER", "KASIR"];
+  if (!staffRoles.includes(role)) {
+    // Portal user - verify ownership
+    if (customer.userId !== session.user.id) {
+      return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+    }
   }
 
   const pet = await prisma.pet.create({
@@ -45,11 +56,11 @@ export async function createPet(
       customerId,
       name: data.name,
       species: data.species,
-      breed: data.breed,
+      breed: data.breed || null,
       birthDate: data.birthDate ? new Date(data.birthDate) : null,
-      weightKg: data.weightKg,
-      colorMarking: data.colorMarking,
-      medicalHistoryNotes: data.medicalHistoryNotes,
+      weightKg: data.weightKg || null,
+      colorMarking: data.colorMarking || null,
+      medicalHistoryNotes: data.medicalHistoryNotes || null,
     },
   });
 
@@ -58,7 +69,11 @@ export async function createPet(
     action: "CREATE",
     entityType: "Pet",
     entityId: pet.id,
-    changes: { name: { old: null, new: data.name } },
+    changes: {
+      name: { old: null, new: data.name },
+      species: { old: null, new: data.species },
+      customerId: { old: null, new: customerId },
+    },
   });
 
   return { success: true, data: pet.id };
@@ -102,16 +117,28 @@ export async function updatePet(
     return { success: false, error: { message: "Tidak bisa mengubah hewan yang sudah diarsipkan", code: "BUSINESS_RULE" } };
   }
 
+  // Authorization: staff can update any pet, portal users only own pets
+  const role = (session.user as any).role;
+  const staffRoles = ["OWNER", "DOKTER", "KASIR"];
+  if (!staffRoles.includes(role)) {
+    const customer = await prisma.customer.findUnique({ where: { id: pet.customerId } });
+    if (!customer || customer.userId !== session.user.id) {
+      return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+    }
+  }
+
+  const oldPet = await prisma.pet.findUnique({ where: { id } });
+
   await prisma.pet.update({
     where: { id },
     data: {
       name: data.name,
       species: data.species,
-      breed: data.breed,
+      breed: data.breed || null,
       birthDate: data.birthDate ? new Date(data.birthDate) : null,
-      weightKg: data.weightKg,
-      colorMarking: data.colorMarking,
-      medicalHistoryNotes: data.medicalHistoryNotes,
+      weightKg: data.weightKg || null,
+      colorMarking: data.colorMarking || null,
+      medicalHistoryNotes: data.medicalHistoryNotes || null,
     },
   });
 
@@ -120,7 +147,12 @@ export async function updatePet(
     action: "UPDATE",
     entityType: "Pet",
     entityId: id,
-    changes: { name: { old: pet.name, new: data.name } },
+    changes: {
+      name: { old: oldPet?.name, new: data.name },
+      species: { old: oldPet?.species, new: data.species },
+      breed: { old: oldPet?.breed, new: data.breed || null },
+      weightKg: { old: oldPet?.weightKg?.toString(), new: data.weightKg?.toString() },
+    },
   });
 
   return { success: true, data: id };
@@ -137,6 +169,16 @@ export async function archivePet(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Hewan tidak ditemukan", code: "NOT_FOUND" } };
   }
 
+  // Authorization: staff can archive any pet, portal users only own pets
+  const role = (session.user as any).role;
+  const staffRoles = ["OWNER", "DOKTER", "KASIR"];
+  if (!staffRoles.includes(role)) {
+    const customer = await prisma.customer.findUnique({ where: { id: pet.customerId } });
+    if (!customer || customer.userId !== session.user.id) {
+      return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+    }
+  }
+
   await prisma.pet.update({
     where: { id },
     data: { status: "ARCHIVED" },
@@ -147,6 +189,9 @@ export async function archivePet(id: string): Promise<ActionResult> {
     action: "ARCHIVE",
     entityType: "Pet",
     entityId: id,
+    changes: {
+      status: { old: "ACTIVE", new: "ARCHIVED" },
+    },
   });
 
   return { success: true, data: undefined };

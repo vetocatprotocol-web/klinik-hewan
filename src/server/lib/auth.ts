@@ -1,7 +1,14 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import prisma from "./prisma";
+
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MINUTES = 30;
+
+async function getPrisma() {
+  const { default: prisma } = await import("./prisma");
+  return prisma;
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -13,6 +20,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const prisma = await getPrisma();
+
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
           include: { role: true },
@@ -20,16 +29,47 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user || user.status !== "ACTIVE") return null;
 
+        if (user.lockedUntil && user.lockedUntil > new Date()) {
+          const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+          throw new Error(`Akun terkunci. Coba lagi dalam ${minutesLeft} menit.`);
+        }
+
+        if (user.lockedUntil && user.lockedUntil <= new Date()) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { failedLoginAttempts: 0, lockedUntil: null },
+          });
+        }
+
         const isValid = await bcrypt.compare(
           credentials.password as string,
           user.password
         );
 
-        if (!isValid) return null;
+        if (!isValid) {
+          const newAttempts = user.failedLoginAttempts + 1;
+          const updateData: any = { failedLoginAttempts: newAttempts };
+
+          if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+            updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+          }
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: updateData,
+          });
+
+          if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+            throw new Error(`Akun terkunci karena ${MAX_LOGIN_ATTEMPTS} percobaan gagal. Coba lagi dalam ${LOCKOUT_DURATION_MINUTES} menit.`);
+          }
+
+          const remaining = MAX_LOGIN_ATTEMPTS - newAttempts;
+          throw new Error(`Email atau password salah. Sisa percobaan: ${remaining}`);
+        }
 
         await prisma.user.update({
           where: { id: user.id },
-          data: { lastLoginAt: new Date() },
+          data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
         });
 
         return {
@@ -68,6 +108,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 12 * 60 * 60, // 12 hours
+    maxAge: 12 * 60 * 60,
   },
 });

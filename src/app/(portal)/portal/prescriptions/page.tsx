@@ -1,10 +1,10 @@
 import { auth } from "@/server/lib/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import prisma from "@/server/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
-import { Download, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 
 export default async function PortalPrescriptionsPage() {
   const session = await auth();
@@ -51,39 +51,36 @@ export default async function PortalPrescriptionsPage() {
       ) : (
         <div className="space-y-3">
           {prescriptions.map((rx: any) => (
-            <Card key={rx.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="space-y-1">
-                  <p className="font-medium">{rx.prescriptionNumber}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(rx.createdAt)}
-                  </p>
-                  {rx.visit && (
-                    <p className="text-xs text-muted-foreground">
-                      {rx.visit.visitNumber} - {rx.visit.pet?.name}
+            <Link key={rx.id} href={`/portal/prescriptions/${rx.id}`}>
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="space-y-1">
+                    <p className="font-medium">{rx.prescriptionNumber}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDate(rx.createdAt)}
                     </p>
-                  )}
-                  {rx.prescriptionItems.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {rx.prescriptionItems.map((item: any) => (
-                        <p
-                          key={item.id}
-                          className="text-xs text-muted-foreground"
-                        >
-                          - {item.drug?.name || "Obat"}
-                          {item.dosage ? ` (${item.dosage})` : ""}
-                          
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <Button variant="outline" size="sm" disabled>
-                  <Download className="mr-1 h-3 w-3" />
-                  Unduh
-                </Button>
-              </CardContent>
-            </Card>
+                    {rx.visit && (
+                      <p className="text-xs text-muted-foreground">
+                        {rx.visit.visitNumber} - {rx.visit.pet?.name}
+                      </p>
+                    )}
+                    {rx.prescriptionItems.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {rx.prescriptionItems.map((item: any) => (
+                          <p
+                            key={item.id}
+                            className="text-xs text-muted-foreground"
+                          >
+                            - {item.drug?.name || "Obat"}
+                            {item.dosage ? ` (${item.dosage})` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

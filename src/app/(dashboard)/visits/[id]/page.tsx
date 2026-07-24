@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { auth } from "@/server/lib/auth";
 import prisma from "@/server/lib/prisma";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ArrowLeft, Edit, CheckCircle } from "lucide-react";
+import { CompleteVisitButton } from "./complete-visit-button";
 
 export default async function VisitDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
   const { id } = await params;
   const visit = await prisma.visit.findUnique({
     where: { id },
@@ -40,6 +43,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
           {visit.status === "DRAFT" && (
             <>
               <Link href={`/visits/${visit.id}/edit`}><Button variant="outline" size="sm"><Edit className="mr-2 h-4 w-4" />Edit</Button></Link>
+              <CompleteVisitButton visitId={visit.id} />
             </>
           )}
         </div>
@@ -67,8 +71,8 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
               {visit.physicalExamNotes && <div><span className="text-sm text-muted-foreground">Pemeriksaan Fisik:</span><p className="text-sm">{visit.physicalExamNotes}</p></div>}
               {visit.treatmentNotes && <div><span className="text-sm text-muted-foreground">Catatan Perawatan:</span><p className="text-sm">{visit.treatmentNotes}</p></div>}
               <div className="flex gap-4 text-sm">
-                {visit.weightKg && <div><span className="text-muted-foreground">Berat:</span> {visit.weightKg} kg</div>}
-                {visit.temperature && <div><span className="text-muted-foreground">Suhu:</span> {visit.temperature}°C</div>}
+                {visit.weightKg && <div><span className="text-muted-foreground">Berat:</span> {Number(visit.weightKg)} kg</div>}
+                {visit.temperature && <div><span className="text-muted-foreground">Suhu:</span> {Number(visit.temperature)}°C</div>}
                 {visit.heartRate && <div><span className="text-muted-foreground">Detak Jantung:</span> {visit.heartRate} bpm</div>}
               </div>
             </CardContent>
@@ -105,12 +109,18 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
                 <p className="text-sm text-muted-foreground mb-2">{visit.prescription.prescriptionNumber}</p>
                 <div className="space-y-2">
                   {visit.prescription.prescriptionItems.map((pi) => (
-                    <div key={pi.id} className="flex items-center justify-between rounded border p-3 text-sm">
-                      <div>
+                    <div key={pi.id} className="rounded border p-3 text-sm">
+                      <div className="flex items-center justify-between">
                         <p className="font-medium">{pi.drug.name}</p>
-                        <p className="text-xs text-muted-foreground">{pi.dosage || pi.drug.unit}</p>
+                        <p>Jumlah: {pi.quantity}</p>
                       </div>
-                      <p>Jumlah: {pi.quantity}</p>
+                      {(pi.dosage || pi.durationDays || pi.instructions) && (
+                        <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                          {pi.dosage && <p>Dosis: {pi.dosage}</p>}
+                          {pi.durationDays && <p>Durasi: {pi.durationDays} hari</p>}
+                          {pi.instructions && <p>Instruksi: {pi.instructions}</p>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

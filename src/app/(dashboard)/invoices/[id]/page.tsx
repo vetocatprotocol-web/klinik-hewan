@@ -5,7 +5,8 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ArrowLeft, Printer, Mail } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
+import { InvoiceActions } from "./invoice-actions";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,7 +27,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   });
 
   const settingsRaw = await prisma.setting.findMany();
-  const settings = settingsRaw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {} as Record<string, any>);
+  const settingsMap: Record<string, any> = {};
+  settingsRaw.forEach((s: any) => { settingsMap[s.key] = s.value; });
+  const settings = settingsMap;
   const companyInfo = (settings.company_info as any) || {};
 
   return (
@@ -39,6 +42,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </div>
         <div className="ml-auto flex gap-2">
           <StatusBadge status={invoice.status} />
+          <InvoiceActions
+            invoiceId={invoice.id}
+            remainingBalance={Number(invoice.total) - Number(invoice.paidAmount)}
+            status={invoice.status}
+          />
           <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Cetak</Button>
         </div>
       </div>

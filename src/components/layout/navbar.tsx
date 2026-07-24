@@ -10,9 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User, Bell } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { NotificationBell } from "@/components/shared/notification-bell";
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -25,11 +27,9 @@ export function Navbar() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Link href="/notifications">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-4 w-4" />
-          </Button>
-        </Link>
+        <ThemeToggle />
+
+        <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

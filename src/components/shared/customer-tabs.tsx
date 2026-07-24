@@ -5,21 +5,23 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Plus } from "lucide-react";
 
 interface CustomerTabsProps {
   customerId: string;
   pets: any[];
+  visits?: any[];
+  invoices?: any[];
 }
 
-export function CustomerTabs({ customerId, pets }: CustomerTabsProps) {
+export function CustomerTabs({ customerId, pets, visits = [], invoices = [] }: CustomerTabsProps) {
   return (
     <Tabs defaultValue="pets">
       <TabsList>
         <TabsTrigger value="pets">Hewan ({pets.length})</TabsTrigger>
-        <TabsTrigger value="visits">Kunjungan</TabsTrigger>
-        <TabsTrigger value="invoices">Invoice</TabsTrigger>
+        <TabsTrigger value="visits">Kunjungan ({visits.length})</TabsTrigger>
+        <TabsTrigger value="invoices">Invoice ({invoices.length})</TabsTrigger>
       </TabsList>
 
       <TabsContent value="pets">
@@ -68,9 +70,40 @@ export function CustomerTabs({ customerId, pets }: CustomerTabsProps) {
             <CardTitle className="text-base">Riwayat Kunjungan</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Kunjungan akan ditampilkan di sini
-            </p>
+            {visits.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Belum ada riwayat kunjungan
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {visits.map((visit: any) => (
+                  <Link
+                    key={visit.id}
+                    href={`/visits/${visit.id}`}
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{visit.visitNumber}</p>
+                        <StatusBadge status={visit.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {visit.pet?.name} - {visit.diagnosis}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(visit.visitDate)}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/visits/${visit.id}`}
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    >
+                      Lihat
+                    </Link>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </TabsContent>
@@ -81,9 +114,40 @@ export function CustomerTabs({ customerId, pets }: CustomerTabsProps) {
             <CardTitle className="text-base">Invoice</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Invoice akan ditampilkan di sini
-            </p>
+            {invoices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Belum ada invoice
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {invoices.map((invoice: any) => (
+                  <Link
+                    key={invoice.id}
+                    href={`/invoices/${invoice.id}`}
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{invoice.invoiceNumber}</p>
+                        <StatusBadge status={invoice.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {invoice.pet?.name} - {formatDate(invoice.invoiceDate)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Total: {formatCurrency(invoice.total)} | Dibayar: {formatCurrency(invoice.paidAmount)}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/invoices/${invoice.id}`}
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    >
+                      Lihat
+                    </Link>
+                  </Link>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </TabsContent>

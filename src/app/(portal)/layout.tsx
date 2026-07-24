@@ -14,15 +14,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/shared/notification-bell";
-import { LogOut, User, PawPrint } from "lucide-react";
+import { LogOut, User, PawPrint, Menu } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import { signOut } from "next-auth/react";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const portalNavItems = [
   { label: "Dashboard", href: "/portal/dashboard" },
   { label: "Hewan Saya", href: "/portal/pets" },
   { label: "Riwayat", href: "/portal/visits" },
+  { label: "Resep", href: "/portal/prescriptions" },
   { label: "Invoice", href: "/portal/invoices" },
+  { label: "Profil", href: "/portal/profile" },
 ];
 
 export default function PortalLayout({
@@ -43,6 +47,33 @@ export default function PortalLayout({
               <PawPrint className="h-6 w-6 text-primary" />
               <span className="text-lg font-bold">PetCare</span>
             </Link>
+            <Sheet>
+              <SheetTrigger className="flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:bg-muted md:hidden">
+                <Menu className="h-4 w-4" />
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0">
+                <div className="flex items-center gap-2 p-4 border-b">
+                  <PawPrint className="h-6 w-6 text-primary" />
+                  <span className="text-lg font-bold">PetCare</span>
+                </div>
+                <nav className="flex flex-col gap-1 p-2">
+                  {portalNavItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        pathname === item.href
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </nav>
+              </SheetContent>
+            </Sheet>
             <nav className="hidden items-center gap-1 md:flex">
               {portalNavItems.map((item) => (
                 <Link
@@ -62,6 +93,7 @@ export default function PortalLayout({
           </div>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <NotificationBell />
 
             <DropdownMenu>

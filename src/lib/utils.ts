@@ -48,7 +48,7 @@ export function generateVisitNumber(date: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  const random = Math.floor(Math.random() * 99999)
+  const random = (Date.now() % 100000)
     .toString()
     .padStart(5, "0");
   return `VIS-${year}-${month}${day}-${random}`;
@@ -59,7 +59,7 @@ export function generateInvoiceNumber(date: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  const random = Math.floor(Math.random() * 99999)
+  const random = (Date.now() % 100000)
     .toString()
     .padStart(5, "0");
   return `INV-${year}-${month}${day}-${random}`;
@@ -70,7 +70,7 @@ export function generateBillingNumber(date: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  const random = Math.floor(Math.random() * 99999)
+  const random = (Date.now() % 100000)
     .toString()
     .padStart(5, "0");
   return `BIL-${year}-${month}${day}-${random}`;
@@ -81,7 +81,7 @@ export function generatePaymentNumber(date: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  const random = Math.floor(Math.random() * 99999)
+  const random = (Date.now() % 100000)
     .toString()
     .padStart(5, "0");
   return `PAY-${year}-${month}${day}-${random}`;
@@ -92,7 +92,7 @@ export function generateOrderNumber(date: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  const random = Math.floor(Math.random() * 99999)
+  const random = (Date.now() % 100000)
     .toString()
     .padStart(5, "0");
   return `RCP-${year}-${month}${day}-${random}`;
@@ -103,7 +103,7 @@ export function generatePrescriptionNumber(date: Date): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  const random = Math.floor(Math.random() * 99999)
+  const random = (Date.now() % 100000)
     .toString()
     .padStart(5, "0");
   return `RX-${year}-${month}${day}-${random}`;

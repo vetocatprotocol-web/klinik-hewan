@@ -9,6 +9,7 @@ import { addBillingItem, removeBillingItem, completeBilling } from "@/server/act
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -76,6 +77,7 @@ export default function BillingDetailPage() {
   const [itemType, setItemType] = useState("SERVICE");
   const [itemId, setItemId] = useState("");
   const [itemQty, setItemQty] = useState(1);
+  const [itemNotes, setItemNotes] = useState("");
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
   const [addingItem, setAddingItem] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -119,11 +121,12 @@ export default function BillingDetailPage() {
     if (!itemId || itemQty < 1) return;
     setAddingItem(true);
     try {
-      const result = await addBillingItem(id, itemType, itemId, itemQty);
+      const result = await addBillingItem(id, itemType, itemId, itemQty, itemNotes || undefined);
       if (result.success) {
         setItemDialogOpen(false);
         setItemId("");
         setItemQty(1);
+        setItemNotes("");
         await fetchBilling();
       }
     } finally {
@@ -254,6 +257,15 @@ export default function BillingDetailPage() {
                       min={1}
                       value={itemQty}
                       onChange={(e) => setItemQty(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Catatan (Opsional)</Label>
+                    <Textarea
+                      value={itemNotes}
+                      onChange={(e) => setItemNotes(e.target.value)}
+                      placeholder="Catatan untuk item ini"
+                      rows={2}
                     />
                   </div>
                 </div>

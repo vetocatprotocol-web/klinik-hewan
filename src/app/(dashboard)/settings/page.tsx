@@ -6,6 +6,7 @@ import {
   updateCompanyInfo,
   updateTaxConfig,
   updatePaymentMethods,
+  updateNumberingFormat,
 } from "@/server/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,9 +72,14 @@ export default function SettingsPage() {
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
-  const [, setNumberingFormat] = useState("");
-  const [numberingPrefix, setNumberingPrefix] = useState("");
-  const [numberingLength, setNumberingLength] = useState("5");
+  const [numberingConfig, setNumberingConfig] = useState({
+    visitPrefix: "VIS",
+    invoicePrefix: "INV",
+    billingPrefix: "BIL",
+    receiptPrefix: "RCP",
+    paymentPrefix: "PAY",
+    prescriptionPrefix: "RX",
+  });
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -113,9 +119,14 @@ export default function SettingsPage() {
 
       const nf = data.numbering_config as any;
       if (nf) {
-        setNumberingFormat(nf.format || "");
-        setNumberingPrefix(nf.prefix || "");
-        setNumberingLength(String(nf.length || 5));
+        setNumberingConfig({
+          visitPrefix: nf.visitPrefix || "VIS",
+          invoicePrefix: nf.invoicePrefix || "INV",
+          billingPrefix: nf.billingPrefix || "BIL",
+          receiptPrefix: nf.receiptPrefix || "RCP",
+          paymentPrefix: nf.paymentPrefix || "PAY",
+          prescriptionPrefix: nf.prescriptionPrefix || "RX",
+        });
       }
     } finally {
       setLoading(false);
@@ -194,6 +205,25 @@ export default function SettingsPage() {
     setPaymentMethods((prev) =>
       prev.map((m, i) => (i === index ? { ...m, active: !m.active } : m))
     );
+  };
+
+  const handleSaveNumberingFormat = async () => {
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      Object.entries(numberingConfig).forEach(([key, value]) => {
+        formData.set(key, value);
+      });
+      const result = await updateNumberingFormat(null, formData);
+      if (result.success) {
+        showMessage("success", "Format nomor berhasil disimpan");
+        loadSettings();
+      } else {
+        showMessage("error", result.error.message);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -412,30 +442,64 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">
                 Konfigurasi format penomoran otomatis untuk invoice, kunjungan, dan pembayaran.
               </p>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2">
-                  <Label htmlFor="numberingPrefix">Prefix</Label>
+                  <Label htmlFor="visitPrefix">Prefix Kunjungan</Label>
                   <Input
-                    id="numberingPrefix"
-                    value={numberingPrefix}
-                    onChange={(e) => setNumberingPrefix(e.target.value)}
-                    placeholder="INV, VIS, PAY"
+                    id="visitPrefix"
+                    value={numberingConfig.visitPrefix}
+                    onChange={(e) => setNumberingConfig({ ...numberingConfig, visitPrefix: e.target.value })}
+                    placeholder="VIS"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="numberingLength">Panjang Nomor</Label>
+                  <Label htmlFor="invoicePrefix">Prefix Invoice</Label>
                   <Input
-                    id="numberingLength"
-                    type="number"
-                    min="4"
-                    max="10"
-                    value={numberingLength}
-                    onChange={(e) => setNumberingLength(e.target.value)}
+                    id="invoicePrefix"
+                    value={numberingConfig.invoicePrefix}
+                    onChange={(e) => setNumberingConfig({ ...numberingConfig, invoicePrefix: e.target.value })}
+                    placeholder="INV"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="billingPrefix">Prefix Billing</Label>
+                  <Input
+                    id="billingPrefix"
+                    value={numberingConfig.billingPrefix}
+                    onChange={(e) => setNumberingConfig({ ...numberingConfig, billingPrefix: e.target.value })}
+                    placeholder="BIL"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiptPrefix">Prefix Struk</Label>
+                  <Input
+                    id="receiptPrefix"
+                    value={numberingConfig.receiptPrefix}
+                    onChange={(e) => setNumberingConfig({ ...numberingConfig, receiptPrefix: e.target.value })}
+                    placeholder="RCP"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentPrefix">Prefix Pembayaran</Label>
+                  <Input
+                    id="paymentPrefix"
+                    value={numberingConfig.paymentPrefix}
+                    onChange={(e) => setNumberingConfig({ ...numberingConfig, paymentPrefix: e.target.value })}
+                    placeholder="PAY"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prescriptionPrefix">Prefix Resep</Label>
+                  <Input
+                    id="prescriptionPrefix"
+                    value={numberingConfig.prescriptionPrefix}
+                    onChange={(e) => setNumberingConfig({ ...numberingConfig, prescriptionPrefix: e.target.value })}
+                    placeholder="RX"
                   />
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button disabled={saving}>
+                <Button onClick={handleSaveNumberingFormat} disabled={saving}>
                   <Save className="mr-2 h-4 w-4" />
                   {saving ? "Menyimpan..." : "Simpan"}
                 </Button>

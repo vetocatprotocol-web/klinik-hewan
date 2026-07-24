@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/server/lib/auth";
+import prisma from "@/server/lib/prisma";
 import { getCustomerById } from "@/server/queries/customers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -23,6 +24,32 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
   }
 
   const pets = customer.pets.filter((p: any) => p.status === "ACTIVE");
+
+  const [visits, invoices] = await Promise.all([
+    prisma.visit.findMany({
+      where: { customerId: id },
+      include: {
+        pet: { select: { name: true } },
+        visitItems: {
+          include: {
+            service: { select: { name: true } },
+            drug: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    prisma.invoice.findMany({
+      where: { customerId: id },
+      include: {
+        pet: { select: { name: true } },
+        invoiceItems: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -105,7 +132,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
         </div>
       </div>
 
-      <CustomerTabs customerId={id} pets={pets} />
+      <CustomerTabs customerId={id} pets={pets} visits={visits} invoices={invoices} />
     </div>
   );
 }

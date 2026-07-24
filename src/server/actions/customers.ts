@@ -6,6 +6,19 @@ import { customerSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+
+function generateTempPassword(): string {
+  const bytes = crypto.randomBytes(12);
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let password = "";
+  for (let i = 0; i < 12; i++) {
+    password += chars[bytes[i] % chars.length];
+  }
+  // Ensure at least one uppercase, one lowercase, one number
+  password = password.slice(0, 9) + "A1b";
+  return password;
+}
 
 export async function createCustomer(
   _prevState: any,
@@ -16,11 +29,16 @@ export async function createCustomer(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
+  const role = (session.user as any).role;
+  if (!["OWNER", "DOKTER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
   const data = {
     name: formData.get("name") as string,
     phone: formData.get("phone") as string,
     email: (formData.get("email") as string) || undefined,
-    address: (formData.get("address") as string) || undefined,
+    address: formData.get("address") as string,
     city: (formData.get("city") as string) || undefined,
     postalCode: (formData.get("postalCode") as string) || undefined,
     notes: (formData.get("notes") as string) || undefined,
@@ -35,10 +53,25 @@ export async function createCustomer(
     };
   }
 
+  // PRD 8.2.1: "Duplicate check based on exact name + phone combination"
   const existing = await prisma.customer.findFirst({
-    where: { phone: data.phone },
+    where: { 
+      name: { equals: data.name, mode: "insensitive" },
+      phone: data.phone 
+    },
   });
   if (existing) {
+    return {
+      success: false,
+      error: { message: "Pelanggan dengan nama dan nomor HP yang sama sudah terdaftar", field: "phone" },
+    };
+  }
+
+  // Also check phone uniqueness independently (DB constraint)
+  const phoneExists = await prisma.customer.findFirst({
+    where: { phone: data.phone },
+  });
+  if (phoneExists) {
     return {
       success: false,
       error: { message: "Nomor HP sudah terdaftar", field: "phone" },
@@ -57,20 +90,21 @@ export async function createCustomer(
     },
   });
 
-  // Auto-create user account if email provided
+  // PRD 8.2.1: "System auto-generates user account with temporary password sent via email"
+  let tempPassword = "";
   if (data.email) {
-    const tempPassword = Math.random().toString(36).slice(-8);
+    tempPassword = generateTempPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
-    const role = await prisma.role.findFirst({ where: { name: "CUSTOMER" } });
+    const customerRole = await prisma.role.findFirst({ where: { name: "CUSTOMER" } });
 
-    if (role) {
+    if (customerRole) {
       const user = await prisma.user.create({
         data: {
           name: data.name,
           email: data.email,
           phone: data.phone,
           password: hashedPassword,
-          roleId: role.id,
+          roleId: customerRole.id,
           status: "ACTIVE",
         },
       });
@@ -87,8 +121,50 @@ export async function createCustomer(
     action: "CREATE",
     entityType: "Customer",
     entityId: customer.id,
-    changes: { name: { old: null, new: data.name } },
+    changes: {
+      name: { old: null, new: data.name },
+      phone: { old: null, new: data.phone },
+    },
   });
+
+  // Send welcome email with portal credentials if email provided
+  if (data.email && tempPassword) {
+    try {
+      const { sendEmail, generateCustomerRegistrationEmail } = await import("../lib/email");
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      
+      await sendEmail({
+        to: data.email,
+        subject: "Selamat Datang di Klinik Hewan PetCare",
+        html: generateCustomerRegistrationEmail({
+          customerName: data.name,
+          email: data.email,
+          tempPassword,
+          loginUrl: `${appUrl}/login`,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to send customer registration email:", error);
+    }
+  }
+
+  // Notify owners about new customer registration
+  try {
+    const { createBulkNotifications } = await import("../lib/notifications");
+    const owners = await prisma.user.findMany({
+      where: { role: { name: "OWNER" }, status: "ACTIVE" },
+    });
+    if (owners.length > 0) {
+      await createBulkNotifications(
+        owners.map((o) => o.id),
+        "Pelanggan Baru",
+        `Pelanggan baru ${data.name} telah terdaftar`,
+        "info"
+      );
+    }
+  } catch (error) {
+    console.error("Failed to send customer registration notification:", error);
+  }
 
   return { success: true, data: customer.id };
 }
@@ -103,11 +179,21 @@ export async function updateCustomer(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
+  // Portal users can only update their own customer record
+  const role = (session.user as any).role;
+  const staffRoles = ["OWNER", "DOKTER", "KASIR", "ADMIN"];
+  if (!staffRoles.includes(role)) {
+    const customer = await prisma.customer.findUnique({ where: { id } });
+    if (!customer || customer.userId !== session.user.id) {
+      return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+    }
+  }
+
   const data = {
     name: formData.get("name") as string,
     phone: formData.get("phone") as string,
     email: (formData.get("email") as string) || undefined,
-    address: (formData.get("address") as string) || undefined,
+    address: formData.get("address") as string,
     city: (formData.get("city") as string) || undefined,
     postalCode: (formData.get("postalCode") as string) || undefined,
     notes: (formData.get("notes") as string) || undefined,
@@ -122,10 +208,26 @@ export async function updateCustomer(
     };
   }
 
+  // PRD 8.2.1: "Duplicate check based on exact name + phone combination"
   const existing = await prisma.customer.findFirst({
-    where: { phone: data.phone, id: { not: id } },
+    where: { 
+      name: { equals: data.name, mode: "insensitive" },
+      phone: data.phone,
+      id: { not: id }
+    },
   });
   if (existing) {
+    return {
+      success: false,
+      error: { message: "Pelanggan dengan nama dan nomor HP yang sama sudah terdaftar", field: "phone" },
+    };
+  }
+
+  // Also check phone uniqueness independently
+  const phoneExists = await prisma.customer.findFirst({
+    where: { phone: data.phone, id: { not: id } },
+  });
+  if (phoneExists) {
     return {
       success: false,
       error: { message: "Nomor HP sudah terdaftar", field: "phone" },
@@ -155,6 +257,8 @@ export async function updateCustomer(
     changes: {
       name: { old: oldCustomer?.name, new: data.name },
       phone: { old: oldCustomer?.phone, new: data.phone },
+      address: { old: oldCustomer?.address, new: data.address },
+      email: { old: oldCustomer?.email, new: data.email },
     },
   });
 
@@ -165,6 +269,11 @@ export async function archiveCustomer(id: string): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (role !== "OWNER") {
+    return { success: false, error: { message: "Hanya Owner yang bisa mengarsipkan pelanggan", code: "FORBIDDEN" } };
   }
 
   const customer = await prisma.customer.findUnique({
@@ -193,6 +302,9 @@ export async function archiveCustomer(id: string): Promise<ActionResult> {
     action: "ARCHIVE",
     entityType: "Customer",
     entityId: id,
+    changes: {
+      status: { old: "ACTIVE", new: "INACTIVE" },
+    },
   });
 
   return { success: true, data: undefined };

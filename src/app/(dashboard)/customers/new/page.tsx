@@ -24,7 +24,7 @@ type CustomerFormData = {
   name: string;
   phone: string;
   email?: string;
-  address?: string;
+  address: string;
   city?: string;
   postalCode?: string;
   notes?: string;
@@ -107,8 +107,11 @@ export default function NewCustomerPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Alamat</Label>
+              <Label htmlFor="address">Alamat *</Label>
               <Input id="address" {...register("address")} placeholder="Alamat lengkap" />
+              {errors.address && (
+                <p className="text-xs text-destructive">{errors.address.message}</p>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

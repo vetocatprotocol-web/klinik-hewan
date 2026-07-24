@@ -13,15 +13,17 @@ export const customerSchema = z.object({
     .max(20, "Nomor HP maksimal 20 digit")
     .regex(/^[0-9]+$/, "Nomor HP hanya boleh angka"),
   email: z.string().email("Email tidak valid").optional().or(z.literal("")),
-  address: z.string().optional().or(z.literal("")),
+  address: z.string().min(1, "Alamat harus diisi"),
   city: z.string().optional().or(z.literal("")),
   postalCode: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
 });
 
+const PET_SPECIES = ["Anjing", "Kucing", "Burung", "Kelinci", "Hamster", "Iguana", "Ular", "Kura-kura", "Lainnya"] as const;
+
 export const petSchema = z.object({
   name: z.string().min(1, "Nama harus diisi").max(255),
-  species: z.string().min(1, "Jenis hewan harus dipilih"),
+  species: z.enum(PET_SPECIES, { message: "Jenis hewan harus dipilih" }),
   breed: z.string().optional().or(z.literal("")),
   birthDate: z.string().optional().or(z.literal("")),
   weightKg: z.coerce.number().min(0, "Berat harus >= 0").optional(),
@@ -98,6 +100,9 @@ export const visitSchema = z.object({
     z.object({
       drugId: z.string(),
       quantity: z.coerce.number().min(1),
+      dosage: z.string().optional().or(z.literal("")),
+      durationDays: z.coerce.number().min(1).optional(),
+      instructions: z.string().optional().or(z.literal("")),
     })
   ),
 });

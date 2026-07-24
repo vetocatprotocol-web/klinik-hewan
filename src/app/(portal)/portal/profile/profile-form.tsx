@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { updateCustomer } from "@/server/actions/customers";
+import { changePassword } from "@/server/actions/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save } from "lucide-react";
+import { Save, Key } from "lucide-react";
 
 interface ProfileFormProps {
   customerId: string;
@@ -28,7 +29,9 @@ export function ProfileForm({ customerId, initialData }: ProfileFormProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +53,26 @@ export function ProfileForm({ customerId, initialData }: ProfileFormProps) {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangingPassword(true);
+    setPasswordMessage(null);
+
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      if (result.success) {
+        setPasswordMessage({ type: "success", text: "Password berhasil diubah" });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        setPasswordMessage({ type: "error", text: result.error.message });
+      }
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -123,6 +146,17 @@ export function ProfileForm({ customerId, initialData }: ProfileFormProps) {
           <CardTitle className="text-base">Ubah Password</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {passwordMessage && (
+            <div
+              className={`rounded-md p-3 text-sm ${
+                passwordMessage.type === "success"
+                  ? "bg-green-50 text-green-800"
+                  : "bg-red-50 text-red-800"
+              }`}
+            >
+              {passwordMessage.text}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Password Saat Ini</Label>
             <Input
@@ -153,13 +187,22 @@ export function ProfileForm({ customerId, initialData }: ProfileFormProps) {
           <div className="flex justify-end">
             <Button
               variant="outline"
+              onClick={handleChangePassword}
               disabled={
+                changingPassword ||
                 !currentPassword ||
                 !newPassword ||
                 newPassword !== confirmPassword
               }
             >
-              Ubah Password
+              {changingPassword ? (
+                <>Memproses...</>
+              ) : (
+                <>
+                  <Key className="mr-2 h-4 w-4" />
+                  Ubah Password
+                </>
+              )}
             </Button>
           </div>
         </CardContent>

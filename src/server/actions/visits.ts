@@ -17,6 +17,11 @@ export async function createVisit(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
+  const role = (session.user as any).role;
+  if (!["OWNER", "DOKTER"].includes(role)) {
+    return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa membuat kunjungan", code: "FORBIDDEN" } };
+  }
+
   const servicesJson = formData.get("services") as string;
   const drugsJson = formData.get("drugs") as string;
 
@@ -104,6 +109,9 @@ export async function createVisit(
               quantity: d.quantity,
               unitPrice: Number(master?.pricePerUnit || 0),
               subtotal: Number(master?.pricePerUnit || 0) * d.quantity,
+              dosage: d.dosage || null,
+              durationDays: d.durationDays || null,
+              instructions: d.instructions || null,
             };
           }),
         ],
@@ -128,11 +136,16 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
+  const role = (session.user as any).role;
+  if (!["OWNER", "DOKTER"].includes(role)) {
+    return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa menyelesaikan kunjungan", code: "FORBIDDEN" } };
+  }
+
   const visit = await prisma.visit.findUnique({
     where: { id },
     include: {
       visitItems: true,
-      customer: { select: { id: true, name: true, email: true } },
+      customer: { select: { id: true, name: true, email: true, userId: true } },
       pet: { select: { name: true } },
     },
   });
@@ -143,6 +156,10 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
 
   if (visit.status !== "DRAFT") {
     return { success: false, error: { message: "Hanya kunjungan DRAFT yang bisa diselesaikan", code: "BUSINESS_RULE" } };
+  }
+
+  if (visit.visitItems.length === 0) {
+    return { success: false, error: { message: "Kunjungan harus memiliki minimal 1 layanan atau obat", code: "BUSINESS_RULE" } };
   }
 
   const now = new Date();
@@ -164,58 +181,78 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
 
   const total = subtotal + taxAmount;
 
-  // Create invoice
-  const invoiceNumber = generateInvoiceNumber(now);
-  const invoice = await prisma.invoice.create({
-    data: {
-      invoiceNumber,
-      customerId: visit.customerId,
-      petId: visit.petId,
-      sourceType: "VISIT",
-      sourceId: id,
-      invoiceDate: now,
-      subtotal,
-      taxAmount,
-      total,
-      paidAmount: 0,
-      status: "UNPAID",
-      invoiceItems: {
-        create: visit.visitItems.map((item) => ({
-          itemName: item.serviceId ? `Layanan` : `Obat`,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          subtotal: Number(item.subtotal),
-          category: item.itemType,
-        })),
-      },
-    },
-  });
+  // Get service and drug names for invoice items
+  const serviceIds = visit.visitItems.filter(i => i.serviceId).map(i => i.serviceId!);
+  const drugIds = visit.visitItems.filter(i => i.drugId).map(i => i.drugId!);
+  const [masterServices, masterDrugs] = await Promise.all([
+    prisma.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } }),
+    prisma.drug.findMany({ where: { id: { in: drugIds } }, select: { id: true, name: true } }),
+  ]);
 
-  // Create prescription if there are drug items
-  const drugItems = visit.visitItems.filter((item) => item.itemType === "DRUG");
-  if (drugItems.length > 0) {
-    const prescriptionNumber = generatePrescriptionNumber(now);
-    await prisma.prescription.create({
+  // Create invoice + prescription + status update in a single transaction
+  const invoiceNumber = generateInvoiceNumber(now);
+  let prescriptionNumber: string | null = null;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const invoice = await tx.invoice.create({
       data: {
-        prescriptionNumber,
-        visitId: id,
+        invoiceNumber,
         customerId: visit.customerId,
         petId: visit.petId,
-        prescriptionDate: now,
-        prescriptionItems: {
-          create: drugItems.map((item) => ({
-            drugId: item.drugId!,
-            quantity: item.quantity,
-          })),
+        sourceType: "VISIT",
+        sourceId: id,
+        invoiceDate: now,
+        subtotal,
+        taxAmount,
+        total,
+        paidAmount: 0,
+        status: "UNPAID",
+        invoiceItems: {
+          create: visit.visitItems.map((item) => {
+            const itemName = item.serviceId
+              ? (masterServices.find((s) => s.id === item.serviceId)?.name || "Layanan")
+              : (masterDrugs.find((d) => d.id === item.drugId)?.name || "Obat");
+            return {
+              itemName,
+              quantity: item.quantity,
+              unitPrice: Number(item.unitPrice),
+              subtotal: Number(item.subtotal),
+              category: item.itemType,
+            };
+          }),
         },
       },
     });
-  }
 
-  // Update visit status
-  await prisma.visit.update({
-    where: { id },
-    data: { status: "COMPLETED" },
+    const drugItems = visit.visitItems.filter((item) => item.itemType === "DRUG");
+    if (drugItems.length > 0) {
+      prescriptionNumber = generatePrescriptionNumber(now);
+      await tx.prescription.create({
+        data: {
+          prescriptionNumber,
+          visitId: id,
+          customerId: visit.customerId,
+          petId: visit.petId,
+          prescriptionDate: now,
+          prescriptionItems: {
+            create: drugItems.map((item) => ({
+              drugId: item.drugId!,
+              quantity: item.quantity,
+              dosage: item.dosage || null,
+              durationDays: item.durationDays || null,
+              instructions: item.instructions || null,
+            })),
+          },
+        },
+      });
+    }
+
+    await tx.visit.update({
+      where: { id },
+      data: { status: "COMPLETED" },
+    });
+
+    return { invoiceId: invoice.id };
   });
 
   await createAuditLog({
@@ -226,22 +263,57 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
     changes: { status: { old: "DRAFT", new: "COMPLETED" } },
   });
 
-  // Notify customer if has user account
+  // Notify customer via email if they have a user account
   if (visit.customer.email) {
-    const owners = await prisma.user.findMany({
-      where: { role: { name: "OWNER" }, status: "ACTIVE" },
-    });
-    for (const owner of owners) {
-      await createNotification({
-        userId: owner.id,
-        title: "Kunjungan Selesai",
-        message: `Kunjungan ${visit.customer.name} - ${visit.pet.name} telah selesai`,
-        type: "info",
+    try {
+      const { sendEmail, generateVisitCompletedEmail } = await import("../lib/email");
+      await sendEmail({
+        to: visit.customer.email,
+        subject: `Kunjungan ${visit.visitNumber} telah selesai`,
+        html: generateVisitCompletedEmail({
+          customerName: visit.customer.name,
+          petName: visit.pet.name,
+          visitNumber: visit.visitNumber,
+          diagnosis: visit.diagnosis,
+          invoiceNumber,
+        }),
       });
+    } catch (error) {
+      console.error("Failed to send visit completion email:", error);
     }
   }
 
-  return { success: true, data: invoice.id };
+  // Notify customer via in-app notification if they have a user account
+  if (visit.customer.userId) {
+    await createNotification({
+      userId: visit.customer.userId,
+      title: "Kunjungan Selesai",
+      message: `Kunjungan ${visit.pet.name} dengan nomor ${visit.visitNumber} telah selesai. Invoice ${invoiceNumber} telah dibuat.`,
+      type: "info",
+    });
+  }
+
+  // Send invoice email to customer
+  if (visit.customer.email) {
+    try {
+      const { sendEmail, generateInvoiceEmail } = await import("../lib/email");
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      await sendEmail({
+        to: visit.customer.email,
+        subject: `Invoice Baru - ${invoiceNumber}`,
+        html: generateInvoiceEmail({
+          customerName: visit.customer.name,
+          invoiceNumber,
+          total: total,
+          invoiceUrl: `${appUrl}/portal/invoices/${result.invoiceId}`,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to send invoice email:", error);
+    }
+  }
+
+  return { success: true, data: result.invoiceId };
 }
 
 export async function updateVisit(
@@ -252,6 +324,11 @@ export async function updateVisit(
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "DOKTER"].includes(role)) {
+    return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa mengubah kunjungan", code: "FORBIDDEN" } };
   }
 
   const existingVisit = await prisma.visit.findUnique({ where: { id } });
@@ -345,6 +422,9 @@ export async function updateVisit(
               quantity: d.quantity,
               unitPrice: Number(master?.pricePerUnit || 0),
               subtotal: Number(master?.pricePerUnit || 0) * d.quantity,
+              dosage: d.dosage || null,
+              durationDays: d.durationDays || null,
+              instructions: d.instructions || null,
             };
           }),
         ],

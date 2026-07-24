@@ -64,8 +64,8 @@ export default function EditPetPage() {
   useEffect(() => {
     async function fetchPet() {
       try {
-        const { getCustomerById } = await import("@/server/queries/customers");
-        const customer = await getCustomerById(customerId);
+        const { fetchCustomerById } = await import("@/server/actions/queries");
+        const customer = await fetchCustomerById(customerId);
         if (customer) {
           const foundPet = customer.pets.find((p: any) => p.id === petId);
           if (foundPet) {

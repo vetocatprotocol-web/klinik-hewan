@@ -1,12 +1,12 @@
 import { auth } from "@/server/lib/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import prisma from "@/server/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { toNumber } from "@/types";
-import { Download, Receipt } from "lucide-react";
+import { Receipt } from "lucide-react";
 
 export default async function PortalInvoicesPage() {
   const session = await auth();
@@ -48,33 +48,31 @@ export default async function PortalInvoicesPage() {
       ) : (
         <div className="space-y-3">
           {invoices.map((invoice: any) => (
-            <Card key={invoice.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="space-y-1">
-                  <p className="font-medium">{invoice.invoiceNumber}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(invoice.invoiceDate)}
-                  </p>
-                  {invoice.pet && (
-                    <p className="text-xs text-muted-foreground">
-                      {invoice.pet.name}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {formatCurrency(toNumber(invoice.total))}
-                    </p>
-                    <StatusBadge status={invoice.status} />
+            <Link key={invoice.id} href={`/portal/invoices/${invoice.id}`}>
+              <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="font-medium">{invoice.invoiceNumber}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(invoice.invoiceDate)}
+                      </p>
+                      {invoice.pet && (
+                        <p className="text-xs text-muted-foreground">
+                          {invoice.pet.name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">
+                        {formatCurrency(toNumber(invoice.total))}
+                      </p>
+                      <StatusBadge status={invoice.status} />
+                    </div>
                   </div>
-                  <Button variant="outline" size="sm" disabled>
-                    <Download className="mr-1 h-3 w-3" />
-                    Unduh
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

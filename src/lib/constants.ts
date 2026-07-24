@@ -86,6 +86,7 @@ export const NAV_ITEMS = {
     { label: "Produk", href: "/master/products", icon: "Package" },
     { label: "Stok", href: "/master/stock", icon: "Warehouse" },
     { type: "divider" },
+    { label: "Audit Log", href: "/audit-logs", icon: "FileText" },
     { label: "Pengguna", href: "/settings/users", icon: "UserCog" },
     { label: "Pengaturan", href: "/settings", icon: "Settings" },
   ],

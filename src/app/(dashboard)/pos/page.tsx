@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchActiveProducts, fetchProductCategories } from "@/server/actions/queries";
+import { fetchActiveProducts, fetchProductCategories, fetchSettings } from "@/server/actions/queries";
 import { createPosOrder, addPosItem, checkoutPos } from "@/server/actions/pos";
 import { formatCurrency } from "@/lib/utils";
 import { PAYMENT_METHODS } from "@/lib/constants";
@@ -40,9 +40,14 @@ interface OrderDetails {
   paymentMethod: string;
   paymentAmount: number;
   changeAmount: number;
+  items: CartItem[];
 }
 
-const TAX_RATE = 0.1;
+interface TaxConfig {
+  type: string;
+  value: number;
+  enabled: boolean;
+}
 
 export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -61,17 +66,29 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptDetails, setReceiptDetails] = useState<OrderDetails | null>(null);
+  const [taxConfig, setTaxConfig] = useState<TaxConfig>({ type: "FLAT", value: 0, enabled: false });
+  const [clinicName, setClinicName] = useState("Klinik Hewan");
+  const [receiptFooter, setReceiptFooter] = useState("");
+  const [cartError, setCartError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
-        const [productsData, categoriesData] = await Promise.all([
+        const [productsData, categoriesData, settingsData] = await Promise.all([
           fetchActiveProducts(),
           fetchProductCategories(),
+          fetchSettings(),
         ]);
         setProducts(productsData as unknown as Product[]);
         setCategories(categoriesData as { id: string; name: string }[]);
+
+        const tc = settingsData.tax_config as TaxConfig | undefined;
+        if (tc) setTaxConfig(tc);
+
+        const ci = settingsData.company_info as any;
+        if (ci?.name) setClinicName(ci.name);
+        if (ci?.receiptFooter) setReceiptFooter(ci.receiptFooter);
       } finally {
         setLoading(false);
       }
@@ -88,7 +105,14 @@ export default function POSPage() {
   const recalculateTotals = (items: CartItem[], disc: number) => {
     const sub = items.reduce((sum, item) => sum + item.subtotal, 0);
     setSubtotal(sub);
-    const tax = Math.round(sub * TAX_RATE);
+    let tax = 0;
+    if (taxConfig.enabled) {
+      if (taxConfig.type === "PERCENTAGE") {
+        tax = Math.round(sub * (taxConfig.value / 100));
+      } else {
+        tax = taxConfig.value;
+      }
+    }
     setTaxAmount(tax);
     const t = sub + tax - disc;
     setTotal(t);
@@ -99,11 +123,18 @@ export default function POSPage() {
   };
 
   const handleAddToCart = (product: Product) => {
-    if (product.currentStock <= 0) return;
+    setCartError(null);
+    if (product.currentStock <= 0) {
+      setCartError(`${product.name} stok habis`);
+      return;
+    }
     const existing = cartItems.find((c) => c.productId === product.id);
     let newItems: CartItem[];
     if (existing) {
-      if (existing.quantity >= product.currentStock) return;
+      if (existing.quantity >= product.currentStock) {
+        setCartError(`Stok ${product.name} tidak mencukupi. Tersedia: ${product.currentStock}`);
+        return;
+      }
       newItems = cartItems.map((c) =>
         c.productId === product.id
           ? { ...c, quantity: c.quantity + 1, subtotal: (c.quantity + 1) * c.unitPrice }
@@ -123,10 +154,14 @@ export default function POSPage() {
   };
 
   const handleIncrement = (productId: string) => {
+    setCartError(null);
     const product = products.find((p) => p.id === productId);
     if (!product) return;
     const item = cartItems.find((c) => c.productId === productId);
-    if (item && item.quantity >= product.currentStock) return;
+    if (item && item.quantity >= product.currentStock) {
+      setCartError(`Stok ${product.name} tidak mencukupi. Tersedia: ${product.currentStock}`);
+      return;
+    }
     const newItems = cartItems.map((c) =>
       c.productId === productId
         ? { ...c, quantity: c.quantity + 1, subtotal: (c.quantity + 1) * c.unitPrice }
@@ -171,27 +206,42 @@ export default function POSPage() {
   };
 
   const handleCheckout = async () => {
+    setCartError(null);
     if (cartItems.length === 0) return;
     const paid = parseFloat(paymentAmount) || 0;
-    if (paid < total) return;
+    if (paid < total) {
+      setCartError("Jumlah pembayaran kurang dari total");
+      return;
+    }
     setProcessing(true);
     try {
       const orderResult = await createPosOrder();
-      if (!orderResult.success || !orderResult.data) return;
+      if (!orderResult.success || !orderResult.data) {
+        setCartError("Gagal membuat pesanan");
+        return;
+      }
       const orderId = orderResult.data;
       for (const item of cartItems) {
         const addResult = await addPosItem(orderId, item.productId, item.quantity);
-        if (!addResult.success) return;
+        if (!addResult.success) {
+          setCartError("Gagal menambahkan item ke pesanan");
+          return;
+        }
       }
       const checkoutResult = await checkoutPos(orderId, paymentMethod, paid, discount);
-      if (checkoutResult.success) {
-        setReceiptDetails({
-          orderNumber: orderId, subtotal, taxAmount, discountAmount: discount,
-          total, paymentMethod, paymentAmount: paid, changeAmount,
-        });
-        setReceiptOpen(true);
-        resetCart();
+      if (!checkoutResult.success) {
+        setCartError("Gagal memproses pembayaran");
+        return;
       }
+      setReceiptDetails({
+        orderNumber: orderId, subtotal, taxAmount, discountAmount: discount,
+        total, paymentMethod, paymentAmount: paid, changeAmount,
+        items: [...cartItems],
+      });
+      setReceiptOpen(true);
+      resetCart();
+    } catch (e: any) {
+      setCartError(e?.message || "Terjadi kesalahan saat memproses");
     } finally {
       setProcessing(false);
     }
@@ -206,6 +256,7 @@ export default function POSPage() {
     setPaymentMethod("CASH");
     setPaymentAmount("");
     setChangeAmount(0);
+    setCartError(null);
   };
 
   return (
@@ -262,6 +313,11 @@ export default function POSPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {cartError && (
+                <div className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+                  {cartError}
+                </div>
+              )}
               {cartItems.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">Keranjang kosong</p>
               ) : (
@@ -285,7 +341,7 @@ export default function POSPage() {
                   </div>
                   <div className="space-y-2 border-t pt-3">
                     <div className="flex justify-between text-sm"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                    {taxAmount > 0 && <div className="flex justify-between text-sm"><span>Pajak (10%)</span><span>{formatCurrency(taxAmount)}</span></div>}
+                    {taxAmount > 0 && <div className="flex justify-between text-sm"><span>Pajak ({taxConfig.type === "PERCENTAGE" ? `${taxConfig.value}%` : "Flat"})</span><span>{formatCurrency(taxAmount)}</span></div>}
                     <div className="flex items-center justify-between text-sm">
                       <Label htmlFor="discount">Diskon</Label>
                       <Input id="discount" type="number" min="0" value={discount || ""} onChange={(e) => handleDiscountChange(e.target.value)} className="h-8 w-28 text-right text-sm" />
@@ -325,7 +381,21 @@ export default function POSPage() {
           <DialogHeader><DialogTitle>Struk Pembayaran</DialogTitle></DialogHeader>
           {receiptDetails && (
             <div className="space-y-3 text-sm">
-              <div className="text-center"><p className="font-bold">Klinik Hewan</p><p className="text-xs text-muted-foreground">Terima kasih atas pembelian Anda</p></div>
+              <div className="text-center">
+                <p className="font-bold">{clinicName}</p>
+                <p className="text-xs text-muted-foreground">Terima kasih atas pembelian Anda</p>
+              </div>
+              <div className="text-xs text-muted-foreground text-center">
+                No: {receiptDetails.orderNumber}
+              </div>
+              <div className="border-t pt-3 space-y-1">
+                {receiptDetails.items.map((item) => (
+                  <div key={item.productId} className="flex justify-between text-xs">
+                    <span>{item.name} x{item.quantity}</span>
+                    <span>{formatCurrency(item.subtotal)}</span>
+                  </div>
+                ))}
+              </div>
               <div className="border-t pt-3 space-y-1">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(receiptDetails.subtotal)}</span></div>
                 {receiptDetails.taxAmount > 0 && <div className="flex justify-between"><span>Pajak</span><span>{formatCurrency(receiptDetails.taxAmount)}</span></div>}
@@ -336,6 +406,11 @@ export default function POSPage() {
                 <div className="flex justify-between"><span>Bayar</span><span>{formatCurrency(receiptDetails.paymentAmount)}</span></div>
                 <div className="flex justify-between"><span>Kembalian</span><span>{formatCurrency(receiptDetails.changeAmount)}</span></div>
               </div>
+              {receiptFooter && (
+                <div className="border-t pt-3 text-center text-xs text-muted-foreground">
+                  {receiptFooter}
+                </div>
+              )}
               <Button variant="outline" className="w-full" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Cetak Struk</Button>
             </div>
           )}
