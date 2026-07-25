@@ -21,6 +21,12 @@ import {
   AlertTriangle,
   FileWarning,
   ShoppingCart,
+  Stethoscope,
+  Users,
+  CheckCircle,
+  Building2,
+  Wallet,
+  TrendingUp,
 } from "lucide-react";
 import {
   Card,
@@ -31,10 +37,28 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import Link from "next/link";
 
-// --- Independent streaming sections ---
-
-async function StatsSection() {
+async function StatsSection({ role }: { role: string }) {
   const stats = await getDashboardStats();
+  if (role === "DOKTER") {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Kunjungan Hari Ini" value={stats.todayVisits} description="Kunjungan tercatat hari ini" icon={<CalendarCheck className="h-5 w-5 text-primary" />} />
+        <StatCard title="Janji Temu" value={0} description="Janji temu hari ini" icon={<Clock className="h-5 w-5 text-blue-500" />} />
+        <StatCard title="Pasien Aktif" value={stats.pendingPayments} description="Memerlukan follow-up" icon={<Stethoscope className="h-5 w-5 text-green-500" />} />
+        <StatCard title="Stok Menipis" value={stats.lowStockProducts} description="Produk perlu restok" icon={<AlertTriangle className="h-5 w-5 text-orange-500" />} />
+      </div>
+    );
+  }
+  if (role === "KASIR") {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Pendapatan Hari Ini" value={formatCurrency(stats.todayRevenue)} description="Total pendapatan hari ini" icon={<CircleDollarSign className="h-5 w-5 text-primary" />} />
+        <StatCard title="Pembayaran Tertunda" value={stats.pendingPayments} description="Invoice belum dibayar" icon={<Clock className="h-5 w-5 text-amber-500" />} />
+        <StatCard title="Stok Menipis" value={stats.lowStockProducts} description="Produk perlu restok" icon={<AlertTriangle className="h-5 w-5 text-orange-500" />} />
+        <StatCard title="Transaksi Hari Ini" value={stats.todayVisits} description="Total transaksi hari ini" icon={<ShoppingCart className="h-5 w-5 text-green-500" />} />
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatCard title="Kunjungan Hari Ini" value={stats.todayVisits} description="Kunjungan tercatat hari ini" icon={<CalendarCheck className="h-5 w-5 text-primary" />} />
@@ -45,7 +69,7 @@ async function StatsSection() {
   );
 }
 
-async function ChartsSection() {
+async function ChartsSection({ role }: { role: string }) {
   const [visitChart, revenueChart] = await Promise.all([
     getVisitChart7Days(),
     getRevenueChart30Days(),
@@ -53,21 +77,25 @@ async function ChartsSection() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card><CardHeader><CardTitle className="text-base">Kunjungan (7 Hari)</CardTitle></CardHeader><CardContent><VisitsChart data={visitChart} /></CardContent></Card>
-      <Card><CardHeader><CardTitle className="text-base">Pendapatan (30 Hari)</CardTitle></CardHeader><CardContent><RevenueChart data={revenueChart} /></CardContent></Card>
+      {(role === "OWNER" || role === "KASIR") && (
+        <Card><CardHeader><CardTitle className="text-base">Pendapatan (30 Hari)</CardTitle></CardHeader><CardContent><RevenueChart data={revenueChart} /></CardContent></Card>
+      )}
+      {role === "DOKTER" && (
+        <Card><CardHeader><CardTitle className="text-base">Jadwal Hari Ini</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">Lihat halaman Janji Temu untuk jadwal lengkap.</p></CardContent></Card>
+      )}
     </div>
   );
 }
 
-async function PendingSection() {
+async function PendingSection({ role }: { role: string }) {
   const pending = await getPendingActions();
-  if (pending.unpaidInvoices.length === 0 && pending.incompleteVisits.length === 0 && pending.lowStockProducts.length === 0) {
-    return null;
-  }
+  const hasItems = pending.unpaidInvoices.length > 0 || pending.incompleteVisits.length > 0 || pending.lowStockProducts.length > 0;
+  if (!hasItems) return null;
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Aksi yang Perlu Ditindak</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        {pending.unpaidInvoices.length > 0 && (
+        {(role === "OWNER" || role === "KASIR") && pending.unpaidInvoices.length > 0 && (
           <div>
             <p className="text-sm font-medium mb-2 flex items-center gap-2"><FileWarning className="h-4 w-4 text-amber-500" />Invoice Belum Dibayar ({pending.unpaidInvoices.length})</p>
             <div className="space-y-2">
@@ -137,7 +165,6 @@ async function RecentSection() {
   );
 }
 
-// Skeleton for stats grid
 function StatsGridSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -148,6 +175,7 @@ function StatsGridSkeleton() {
 
 export default async function DashboardPage() {
   const session = await auth();
+  const role = (session?.user as any)?.role || "OWNER";
 
   return (
     <div className="space-y-6">
@@ -157,15 +185,15 @@ export default async function DashboardPage() {
       </div>
 
       <Suspense fallback={<StatsGridSkeleton />}>
-        <StatsSection />
+        <StatsSection role={role} />
       </Suspense>
 
       <Suspense fallback={<DashboardChartsSkeleton />}>
-        <ChartsSection />
+        <ChartsSection role={role} />
       </Suspense>
 
       <Suspense fallback={null}>
-        <PendingSection />
+        <PendingSection role={role} />
       </Suspense>
 
       <Suspense fallback={<CardSkeleton />}>

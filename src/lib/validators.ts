@@ -194,3 +194,47 @@ export const passwordSchema = z.object({
   password: passwordComplexitySchema,
   confirmPassword: z.string().min(1, "Konfirmasi password harus diisi"),
 });
+
+export const appointmentSchema = z.object({
+  customerId: z.string().min(1, "Pelanggan wajib diisi"),
+  petId: z.string().min(1, "Hewan wajib diisi"),
+  doctorId: z.string().min(1, "Dokter wajib diisi"),
+  appointmentDate: z.string().min(1, "Tanggal wajib diisi"),
+  time: z.string().min(1, "Waktu wajib diisi"),
+  type: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const hotelBookingSchema = z.object({
+  customerId: z.string().min(1, "Pelanggan wajib diisi"),
+  petId: z.string().min(1, "Hewan wajib diisi"),
+  roomId: z.string().min(1, "Kamar wajib diisi"),
+  checkInDate: z.string().min(1, "Tanggal check-in wajib diisi"),
+  checkOutDate: z.string().min(1, "Tanggal check-out wajib diisi"),
+  notes: z.string().optional(),
+});
+
+export const supplierSchema = z.object({
+  name: z.string().min(1, "Nama supplier wajib diisi"),
+  phone: z.string().optional(),
+  email: z.string().email("Email tidak valid").optional().or(z.literal("")),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  postalCode: z.string().optional(),
+  contactPerson: z.string().optional(),
+  paymentTerms: z.string().optional(),
+  specialization: z.string().optional(),
+});
+
+export const reconciliationSchema = z.object({
+  date: z.string().min(1, "Tanggal wajib diisi"),
+  actualCash: z.number().min(0, "Uang tunai aktual tidak boleh negatif"),
+  actualCard: z.number().min(0, "Kartu aktual tidak boleh negatif"),
+  notes: z.string().optional(),
+});
+
+export const discountSchema = z.object({
+  amount: z.number().min(0, "Jumlah diskon tidak boleh negatif"),
+  percent: z.number().min(0).max(100, "Persentase diskon maksimal 100%").optional(),
+  reason: z.string().min(1, "Alasan diskon wajib diisi"),
+});

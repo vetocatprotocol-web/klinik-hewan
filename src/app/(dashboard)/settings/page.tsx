@@ -7,6 +7,8 @@ import {
   updateTaxConfig,
   updatePaymentMethods,
   updateNumberingFormat,
+  updateHotelRates,
+  updateFraudPreventionPolicies,
 } from "@/server/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,16 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Save } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { formatCurrency } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface CompanyInfo {
   name?: string;
@@ -50,6 +62,13 @@ interface SettingsData {
   company_info?: CompanyInfo;
   tax_config?: TaxConfig;
   payment_methods?: PaymentMethod[];
+  hotel_rates?: Array<{ roomType: string; dailyRate: number }>;
+  fraud_prevention_policies?: {
+    discountThreshold: number;
+    stockAdjustmentThreshold: number;
+    poApprovalThreshold: number;
+    reconciliationTolerance: number;
+  };
 }
 
 export default function SettingsPage() {
@@ -57,6 +76,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const { toast } = useToast();
 
   const [companyName, setCompanyName] = useState("");
   const [companyAddress, setCompanyAddress] = useState("");
@@ -79,6 +99,19 @@ export default function SettingsPage() {
     receiptPrefix: "RCP",
     paymentPrefix: "PAY",
     prescriptionPrefix: "RX",
+  });
+
+  const [hotelRates, setHotelRates] = useState<Array<{ roomType: string; dailyRate: number }>>([
+    { roomType: "KUCING", dailyRate: 50000 },
+    { roomType: "ANJING", dailyRate: 75000 },
+    { roomType: "VIP", dailyRate: 150000 },
+  ]);
+
+  const [fraudPolicies, setFraudPolicies] = useState({
+    discountThreshold: 100000,
+    stockAdjustmentThreshold: 10,
+    poApprovalThreshold: 500000,
+    reconciliationTolerance: 50000,
   });
 
   const loadSettings = useCallback(async () => {
@@ -126,6 +159,21 @@ export default function SettingsPage() {
           receiptPrefix: nf.receiptPrefix || "RCP",
           paymentPrefix: nf.paymentPrefix || "PAY",
           prescriptionPrefix: nf.prescriptionPrefix || "RX",
+        });
+      }
+
+      const hr = data.hotel_rates as Array<{ roomType: string; dailyRate: number }> | undefined;
+      if (hr && hr.length > 0) {
+        setHotelRates(hr);
+      }
+
+      const fp = data.fraud_prevention_policies as SettingsData["fraud_prevention_policies"] | undefined;
+      if (fp) {
+        setFraudPolicies({
+          discountThreshold: fp.discountThreshold ?? 100000,
+          stockAdjustmentThreshold: fp.stockAdjustmentThreshold ?? 10,
+          poApprovalThreshold: fp.poApprovalThreshold ?? 500000,
+          reconciliationTolerance: fp.reconciliationTolerance ?? 50000,
         });
       }
     } finally {
@@ -226,6 +274,58 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveHotelRates = async () => {
+    setSaving(true);
+    try {
+      const result = await updateHotelRates(hotelRates);
+      if (result.success) {
+        toast({ title: "Tarif hotel berhasil disimpan", variant: "default" });
+        loadSettings();
+      } else {
+        toast({ title: "Gagal menyimpan tarif hotel", description: result.error.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Terjadi kesalahan", description: "Gagal menyimpan tarif hotel", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveFraudPolicies = async () => {
+    setSaving(true);
+    try {
+      const result = await updateFraudPreventionPolicies(fraudPolicies);
+      if (result.success) {
+        toast({ title: "Kebijakan pencegahan fraud berhasil disimpan", variant: "default" });
+        loadSettings();
+      } else {
+        toast({ title: "Gagal menyimpan kebijakan", description: result.error.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Terjadi kesalahan", description: "Gagal menyimpan kebijakan pencegahan fraud", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateHotelRate = (index: number, field: "roomType" | "dailyRate", value: string) => {
+    setHotelRates((prev) =>
+      prev.map((r, i) =>
+        i === index
+          ? { ...r, [field]: field === "dailyRate" ? Number(value) || 0 : value }
+          : r
+      )
+    );
+  };
+
+  const addHotelRate = () => {
+    setHotelRates((prev) => [...prev, { roomType: "", dailyRate: 0 }]);
+  };
+
+  const removeHotelRate = (index: number) => {
+    setHotelRates((prev) => prev.filter((_, i) => i !== index));
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -262,6 +362,8 @@ export default function SettingsPage() {
           <TabsTrigger value="tax">Konfigurasi Pajak</TabsTrigger>
           <TabsTrigger value="payment">Metode Pembayaran</TabsTrigger>
           <TabsTrigger value="numbering">Format Nomor</TabsTrigger>
+          <TabsTrigger value="hotel">Tarif Hotel</TabsTrigger>
+          <TabsTrigger value="fraud">Kebijakan Pencegahan Fraud</TabsTrigger>
         </TabsList>
 
         <TabsContent value="company">
@@ -500,6 +602,150 @@ export default function SettingsPage() {
               </div>
               <div className="flex justify-end">
                 <Button onClick={handleSaveNumberingFormat} disabled={saving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? "Menyimpan..." : "Simpan"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="hotel">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Tarif Hotel</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Konfigurasi tarif harian untuk setiap tipe kamar hotel hewan.
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipe Kamar</TableHead>
+                    <TableHead>Tarif Per Hari (Rp)</TableHead>
+                    <TableHead className="w-[80px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {hotelRates.map((rate, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Input
+                          value={rate.roomType}
+                          onChange={(e) => updateHotelRate(index, "roomType", e.target.value)}
+                          placeholder="Nama tipe kamar"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={rate.dailyRate || ""}
+                          onChange={(e) => updateHotelRate(index, "dailyRate", e.target.value)}
+                          placeholder="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeHotelRate(index)}
+                          disabled={saving}
+                        >
+                          Hapus
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="flex items-center justify-between">
+                <Button variant="outline" onClick={addHotelRate} disabled={saving}>
+                  + Tambah Tipe Kamar
+                </Button>
+                <Button onClick={handleSaveHotelRates} disabled={saving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {saving ? "Menyimpan..." : "Simpan"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="fraud">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Kebijakan Pencegahan Fraud</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Konfigurasi ambang batas yang memerlukan persetujuan pemilik (OWNER) untuk mencegah penyalahgunaan.
+              </p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="discountThreshold">Batas Diskon (Rp)</Label>
+                  <Input
+                    id="discountThreshold"
+                    type="number"
+                    min="0"
+                    value={fraudPolicies.discountThreshold}
+                    onChange={(e) =>
+                      setFraudPolicies({ ...fraudPolicies, discountThreshold: Number(e.target.value) || 0 })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Diskon melebihi {formatCurrency(fraudPolicies.discountThreshold)} memerlukan persetujuan OWNER
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stockAdjustmentThreshold">Batas Penyesuaian Stok (unit)</Label>
+                  <Input
+                    id="stockAdjustmentThreshold"
+                    type="number"
+                    min="0"
+                    value={fraudPolicies.stockAdjustmentThreshold}
+                    onChange={(e) =>
+                      setFraudPolicies({ ...fraudPolicies, stockAdjustmentThreshold: Number(e.target.value) || 0 })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Penyesuaian stok melebihi {fraudPolicies.stockAdjustmentThreshold} unit memerlukan persetujuan OWNER
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="poApprovalThreshold">Batas Persetujuan PO (Rp)</Label>
+                  <Input
+                    id="poApprovalThreshold"
+                    type="number"
+                    min="0"
+                    value={fraudPolicies.poApprovalThreshold}
+                    onChange={(e) =>
+                      setFraudPolicies({ ...fraudPolicies, poApprovalThreshold: Number(e.target.value) || 0 })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    PO melebihi {formatCurrency(fraudPolicies.poApprovalThreshold)} memerlukan persetujuan OWNER
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reconciliationTolerance">Toleransi Rekonsiliasi (Rp)</Label>
+                  <Input
+                    id="reconciliationTolerance"
+                    type="number"
+                    min="0"
+                    value={fraudPolicies.reconciliationTolerance}
+                    onChange={(e) =>
+                      setFraudPolicies({ ...fraudPolicies, reconciliationTolerance: Number(e.target.value) || 0 })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Selisih kas melebihi {formatCurrency(fraudPolicies.reconciliationTolerance)} akan memicu peringatan
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveFraudPolicies} disabled={saving}>
                   <Save className="mr-2 h-4 w-4" />
                   {saving ? "Menyimpan..." : "Simpan"}
                 </Button>

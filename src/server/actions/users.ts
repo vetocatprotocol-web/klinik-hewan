@@ -213,3 +213,147 @@ export async function changePassword(
 
   return { success: true, data: undefined };
 }
+
+export async function updateUserRole(userId: string, roleId: string): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const user = await client.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return { success: false, error: { message: "User tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const oldRoleId = user.roleId;
+
+  await client.user.update({
+    where: { id: userId },
+    data: { roleId },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "UPDATE",
+    entityType: "User",
+    entityId: userId,
+    changes: { roleId: { old: oldRoleId, new: roleId } },
+  });
+
+  return { success: true, data: undefined };
+}
+
+export async function getUserActivity(userId: string): Promise<ActionResult<any[]>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const logs = await client.auditLog.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return { success: true, data: logs };
+}
+
+export async function lockUser(userId: string, durationMinutes: number): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  if (session.user.id === userId) {
+    return { success: false, error: { message: "Tidak bisa mengunci akun sendiri", code: "BUSINESS_RULE" } };
+  }
+
+  const user = await client.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return { success: false, error: { message: "User tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const lockedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+
+  await client.user.update({
+    where: { id: userId },
+    data: { lockedUntil },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "UPDATE",
+    entityType: "User",
+    entityId: userId,
+    changes: { lockedUntil: { old: null, new: lockedUntil.toISOString() } },
+  });
+
+  return { success: true, data: undefined };
+}
+
+export async function unlockUser(userId: string): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const user = await client.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return { success: false, error: { message: "User tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  await client.user.update({
+    where: { id: userId },
+    data: { lockedUntil: null },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "UPDATE",
+    entityType: "User",
+    entityId: userId,
+    changes: { lockedUntil: { old: user.lockedUntil?.toISOString() || null, new: null } },
+  });
+
+  return { success: true, data: undefined };
+}
+
+export async function getFailedLoginAttempts(userId: string): Promise<ActionResult<any>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const user = await client.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      failedLoginAttempts: true,
+      lockedUntil: true,
+    },
+  });
+
+  if (!user) {
+    return { success: false, error: { message: "User tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const isLocked = user.lockedUntil !== null && new Date(user.lockedUntil) > new Date();
+
+  return {
+    success: true,
+    data: {
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      failedLoginAttempts: user.failedLoginAttempts,
+      lockedUntil: user.lockedUntil,
+      isLocked,
+    },
+  };
+}

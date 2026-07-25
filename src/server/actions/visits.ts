@@ -576,6 +576,56 @@ export async function removeVisitItem(
   return { success: true, data: undefined };
 }
 
+export async function cancelVisit(
+  visitId: string,
+  reason: string
+): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["DOKTER", "OWNER"].includes(role)) {
+    return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa membatalkan kunjungan", code: "FORBIDDEN" } };
+  }
+
+  if (!reason || reason.trim() === "") {
+    return { success: false, error: { message: "Alasan pembatalan wajib diisi", field: "reason" } };
+  }
+
+  const visit = await client.visit.findUnique({ where: { id: visitId } });
+  if (!visit) {
+    return { success: false, error: { message: "Kunjungan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  if (visit.status !== "DRAFT") {
+    return { success: false, error: { message: "Hanya kunjungan DRAFT yang bisa dibatalkan", code: "BUSINESS_RULE" } };
+  }
+
+  await client.visit.update({
+    where: { id: visitId },
+    data: {
+      status: "CANCELLED" as any,
+      treatmentNotes: reason,
+    },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "STATUS_CHANGE",
+    entityType: "Visit",
+    entityId: visitId,
+    changes: {
+      status: { old: "DRAFT", new: "CANCELLED" },
+      cancellationReason: { old: null, new: reason },
+    },
+  });
+
+  return { success: true, data: undefined };
+}
+
 export async function downloadVisitNotesPdf(visitId: string): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();

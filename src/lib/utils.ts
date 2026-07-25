@@ -95,6 +95,22 @@ export function generatePrescriptionNumber(date: Date): string {
   return generateNumber("RX", date);
 }
 
+export function generateAppointmentNumber(date: Date): string {
+  return generateNumber("APT", date);
+}
+
+export function generateBookingNumber(date: Date): string {
+  return generateNumber("HTL", date);
+}
+
+export function generatePONumber(date: Date): string {
+  return generateNumber("PO", date);
+}
+
+export function generateGRNumber(date: Date): string {
+  return generateNumber("GR", date);
+}
+
 export function calculateAge(birthDate: Date | string): string {
   const birth = typeof birthDate === "string" ? new Date(birthDate) : birthDate;
   const now = new Date();
@@ -122,6 +138,11 @@ export function slugify(text: string): string {
     .replace(/[^\w\s-]/g, "")
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+export function formatTime(time: string): string {
+  if (!time) return "-";
+  return time;
 }
 
 export function truncate(text: string, maxLength: number): string {

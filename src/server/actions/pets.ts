@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { petSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
+import { uploadFile } from "./uploads";
 
 export async function createPet(
   customerId: string,
@@ -198,4 +199,65 @@ export async function archivePet(id: string): Promise<ActionResult> {
   });
 
   return { success: true, data: undefined };
+}
+
+export async function uploadPetPhoto(
+  petId: string,
+  file: File
+): Promise<ActionResult<string>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const pet = await client.pet.findUnique({ where: { id: petId } });
+  if (!pet) {
+    return { success: false, error: { message: "Hewan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  if (pet.status === "ARCHIVED") {
+    return { success: false, error: { message: "Tidak bisa mengubah hewan yang sudah diarsipkan", code: "BUSINESS_RULE" } };
+  }
+
+  const role = (session.user as any).role;
+  const staffRoles = ["OWNER", "DOKTER", "KASIR"];
+  if (!staffRoles.includes(role)) {
+    const customer = await client.customer.findUnique({ where: { id: pet.customerId } });
+    if (!customer || customer.userId !== session.user.id) {
+      return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+    }
+  }
+
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+  if (!allowedTypes.includes(file.type)) {
+    return {
+      success: false,
+      error: { message: "Tipe file tidak valid. Yang diizinkan: jpg, png, webp" },
+    };
+  }
+
+  const uploadResult = await uploadFile(file, "pet-photos");
+  if (!uploadResult.success) {
+    return { success: false, error: uploadResult.error };
+  }
+
+  const oldImage = pet.image;
+
+  await client.pet.update({
+    where: { id: petId },
+    data: { image: uploadResult.data!.url },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "UPDATE",
+    entityType: "Pet",
+    entityId: petId,
+    changes: {
+      image: { old: oldImage || null, new: uploadResult.data!.url },
+    },
+  });
+
+  return { success: true, data: uploadResult.data!.url };
 }

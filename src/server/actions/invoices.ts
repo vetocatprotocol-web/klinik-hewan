@@ -80,6 +80,68 @@ export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResul
   }
 }
 
+export async function exportInvoices(
+  filters: { status?: string; dateFrom?: string; dateTo?: string; customerId?: string },
+  format: "csv" | "pdf"
+): Promise<ActionResult<any[]>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const where: any = {};
+  if (filters.status) {
+    where.status = filters.status;
+  }
+  if (filters.customerId) {
+    where.customerId = filters.customerId;
+  }
+  if (filters.dateFrom || filters.dateTo) {
+    where.invoiceDate = {};
+    if (filters.dateFrom) where.invoiceDate.gte = new Date(filters.dateFrom);
+    if (filters.dateTo) where.invoiceDate.lte = new Date(filters.dateTo);
+  }
+
+  const invoices = await client.invoice.findMany({
+    where,
+    include: {
+      customer: { select: { name: true, phone: true } },
+      invoiceItems: true,
+    },
+    orderBy: { invoiceDate: "desc" },
+  });
+
+  const exportData = invoices.map((invoice) => ({
+    invoiceNumber: invoice.invoiceNumber,
+    customerName: invoice.customer.name,
+    customerPhone: invoice.customer.phone,
+    invoiceDate: invoice.invoiceDate,
+    dueDate: invoice.dueDate,
+    subtotal: Number(invoice.subtotal),
+    taxAmount: Number(invoice.taxAmount),
+    discountAmount: Number(invoice.discountAmount),
+    total: Number(invoice.total),
+    paidAmount: Number(invoice.paidAmount),
+    status: invoice.status,
+    itemCount: invoice.invoiceItems.length,
+    items: invoice.invoiceItems.map((item) => ({
+      itemName: item.itemName,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+      subtotal: Number(item.subtotal),
+      category: item.category,
+    })),
+  }));
+
+  return { success: true, data: exportData };
+}
+
 export async function emailInvoice(
   _prevState: any,
   formData: FormData

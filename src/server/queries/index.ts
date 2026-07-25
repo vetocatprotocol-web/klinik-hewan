@@ -12,3 +12,8 @@ export { getDashboardStats, getRecentTransactions, getPendingActions, getVisitCh
 export { getAuditLogs } from "./audit";
 export { getPayments } from "./payments";
 export { getPrescriptions, getPrescriptionById } from "./prescriptions";
+export { getHotelRooms, getHotelBookings, getHotelBookingById, getHotelOccupancy, getHotelRevenue } from "./hotel";
+export { getReconciliations, getReconciliationById, getPendingReconciliations } from "./reconciliation";
+export { getApprovals, getApprovalById } from "./approvals";
+export { getSuppliers, getSupplierById, getPurchaseOrders, getPurchaseOrderById, getSupplierPerformance } from "./suppliers";
+export { getAppointments, getAppointmentById, getTodayAppointments, getDoctorSchedule, getDoctorAvailableDates } from "./appointments";

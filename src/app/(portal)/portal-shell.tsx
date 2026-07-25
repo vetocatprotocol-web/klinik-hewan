@@ -21,9 +21,11 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const portalNavItems = [
   { label: "Dashboard", href: "/portal/dashboard" },
   { label: "Hewan Saya", href: "/portal/pets" },
+  { label: "Janji Temu", href: "/portal/appointments" },
   { label: "Riwayat", href: "/portal/visits" },
   { label: "Resep", href: "/portal/prescriptions" },
   { label: "Invoice", href: "/portal/invoices" },
+  { label: "Booking Hotel", href: "/portal/hotel-bookings" },
   { label: "Profil", href: "/portal/profile" },
 ];
 

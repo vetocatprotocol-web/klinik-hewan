@@ -158,3 +158,144 @@ export async function updateNumberingFormat(
 
   return { success: true, data: undefined };
 }
+
+export async function updateHotelRates(
+  rates: Array<{ roomType: string; dailyRate: number }>
+): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  if (!rates || rates.length === 0) {
+    return { success: false, error: { message: "Data tarif kamar harus diisi" } };
+  }
+
+  await client.setting.upsert({
+    where: { key: "hotel_rates" },
+    update: { value: rates },
+    create: { key: "hotel_rates", value: rates },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "UPDATE",
+    entityType: "Setting",
+    entityId: "hotel_rates",
+    changes: { rates: { old: null, new: rates } },
+  });
+
+  return { success: true, data: undefined };
+}
+
+export async function updateFraudPreventionPolicies(policies: {
+  discountThreshold: number;
+  stockAdjustmentThreshold: number;
+  poApprovalThreshold: number;
+  reconciliationTolerance: number;
+}): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  await client.setting.upsert({
+    where: { key: "fraud_prevention_policies" },
+    update: { value: policies },
+    create: { key: "fraud_prevention_policies", value: policies },
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "UPDATE",
+    entityType: "Setting",
+    entityId: "fraud_prevention_policies",
+    changes: { policies: { old: null, new: policies } },
+  });
+
+  return { success: true, data: undefined };
+}
+
+export async function getSettingChangeHistory(key: string): Promise<ActionResult<any[]>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const logs = await client.auditLog.findMany({
+    where: {
+      entityType: "Setting",
+      entityId: key,
+    },
+    orderBy: { createdAt: "desc" },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+
+  return { success: true, data: logs };
+}
+
+export async function revertSetting(key: string, version: number): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "OWNER") {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const userId = (session.user as any).id as string;
+
+  const logs = await client.auditLog.findMany({
+    where: {
+      entityType: "Setting",
+      entityId: key,
+      action: "UPDATE",
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (logs.length === 0) {
+    return { success: false, error: { message: "Tidak ada riwayat perubahan untuk setting ini", code: "NOT_FOUND" } };
+  }
+
+  if (version < 0 || version >= logs.length) {
+    return { success: false, error: { message: "Versi tidak valid", code: "VALIDATION" } };
+  }
+
+  const targetLog = logs[version];
+
+  if (!targetLog.changes || typeof targetLog.changes !== "object") {
+    return { success: false, error: { message: "Data perubahan tidak tersedia untuk versi ini", code: "NOT_FOUND" } };
+  }
+
+  const changes = targetLog.changes as Record<string, any>;
+  const oldValue = changes.value?.old;
+
+  if (oldValue === undefined || oldValue === null) {
+    return { success: false, error: { message: "Nilai sebelumnya tidak tersedia untuk versi ini", code: "NOT_FOUND" } };
+  }
+
+  const currentSetting = await client.setting.findUnique({ where: { key } });
+
+  await client.setting.update({
+    where: { key },
+    data: { value: oldValue },
+  });
+
+  await createAuditLog({
+    userId,
+    action: "UPDATE",
+    entityType: "Setting",
+    entityId: key,
+    changes: {
+      value: {
+        old: currentSetting?.value,
+        new: oldValue,
+      },
+      revertedFromVersion: { old: null, new: version },
+    },
+  });
+
+  return { success: true, data: undefined };
+}

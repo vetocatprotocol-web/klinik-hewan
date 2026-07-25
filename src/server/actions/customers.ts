@@ -202,7 +202,7 @@ export async function updateCustomer(
 
   // Portal users can only update their own customer record
   const role = (session.user as any).role;
-  const staffRoles = ["OWNER", "DOKTER", "KASIR", "ADMIN"];
+  const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
     const customer = await client.customer.findUnique({ where: { id } });
     if (!customer || customer.userId !== session.user.id) {
@@ -284,6 +284,32 @@ export async function updateCustomer(
   });
 
   return { success: true, data: id };
+}
+
+export async function getMyProfile(): Promise<ActionResult<any>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (role !== "CUSTOMER") {
+    return { success: false, error: { message: "Hanya Customer yang bisa mengakses profil ini", code: "FORBIDDEN" } };
+  }
+
+  const customer = await client.customer.findFirst({
+    where: { userId: session.user.id! },
+    include: {
+      pets: { where: { status: "ACTIVE" } },
+    },
+  });
+
+  if (!customer) {
+    return { success: false, error: { message: "Profil pelanggan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  return { success: true, data: customer };
 }
 
 export async function archiveCustomer(id: string): Promise<ActionResult> {

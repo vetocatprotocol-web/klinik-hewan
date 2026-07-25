@@ -38,9 +38,8 @@ let lastCleanup = Date.now();
 
 const ROLE_PREFIXES: Record<string, string[]> = {
   OWNER: [],
-  DOKTER: ["/visits", "/customers", "/billings", "/invoices", "/prescriptions"],
-  KASIR: ["/pos", "/invoices", "/customers", "/billings"],
-  ADMIN: ["/customers", "/visits", "/master/stock", "/reports"],
+  DOKTER: ["/appointments", "/visits", "/customers", "/prescriptions", "/reports", "/medical-records"],
+  KASIR: ["/pos", "/invoices", "/customers", "/master", "/hotel", "/suppliers", "/reconciliation"],
   CUSTOMER: ["/portal"],
 };
 
@@ -57,7 +56,7 @@ function canAccessRoute(role: string, pathname: string): boolean {
   }
 
   if (pathname === "/dashboard" || pathname === "/notifications") {
-    return ["OWNER", "DOKTER", "KASIR", "ADMIN"].includes(role);
+    return ["OWNER", "DOKTER", "KASIR"].includes(role);
   }
 
   return false;

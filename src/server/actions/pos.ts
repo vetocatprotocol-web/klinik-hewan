@@ -563,6 +563,215 @@ export async function processPosTransaction(input: PosCheckoutInput): Promise<Ac
   return { success: true, data: { orderNumber: result.orderNumber, changeAmount: result.changeAmount } };
 }
 
+export async function updateCartQuantity(
+  orderId: string,
+  productId: string,
+  quantity: number
+): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!POS_ROLES.includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const order = await client.posOrder.findUnique({ where: { id: orderId } });
+  if (!order) {
+    return { success: false, error: { message: "Pesanan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const existingItem = await client.posOrderItem.findFirst({
+    where: { posOrderId: orderId, productId },
+  });
+
+  if (!existingItem) {
+    return { success: false, error: { message: "Item tidak ditemukan dalam keranjang", code: "NOT_FOUND" } };
+  }
+
+  const userId = session.user.id!;
+
+  if (quantity <= 0) {
+    await client.$transaction(async (tx) => {
+      if (existingItem.productId) {
+        await tx.product.update({
+          where: { id: existingItem.productId },
+          data: { currentStock: { increment: existingItem.quantity } },
+        });
+
+        await tx.stockAdjustment.create({
+          data: {
+            productId: existingItem.productId,
+            quantity: existingItem.quantity,
+            reason: "RETURN",
+            referenceId: orderId,
+            notes: "Pengembalian stok karena item dihapus dari keranjang POS",
+            createdBy: userId,
+          },
+        });
+      }
+
+      await tx.posOrderItem.delete({ where: { id: existingItem.id } });
+
+      const result: any[] = await tx.$queryRaw`
+        SELECT COALESCE(SUM(subtotal), 0)::numeric as total FROM pos_order_items WHERE pos_order_id = ${orderId}
+      `;
+      const orderSubtotal = Number(result[0]?.total || 0);
+
+      const taxSetting = await tx.setting.findUnique({ where: { key: "tax_config" } });
+      const taxConfig = taxSetting?.value as any;
+      let taxAmount = 0;
+      if (taxConfig?.enabled) {
+        taxAmount = taxConfig.type === "PERCENTAGE"
+          ? Math.round(orderSubtotal * (taxConfig.value / 100))
+          : taxConfig.value;
+      }
+
+      await tx.posOrder.update({
+        where: { id: orderId },
+        data: { subtotal: orderSubtotal, taxAmount, total: orderSubtotal + taxAmount },
+      });
+    });
+
+    return { success: true, data: undefined };
+  }
+
+  const product = await client.product.findUnique({ where: { id: productId } });
+  if (!product || product.status !== "ACTIVE") {
+    return { success: false, error: { message: "Produk tidak ditemukan atau tidak aktif", code: "NOT_FOUND" } };
+  }
+
+  const quantityDiff = quantity - existingItem.quantity;
+  if (quantityDiff > 0 && product.currentStock < quantityDiff) {
+    return {
+      success: false,
+      error: { message: `Stok tidak mencukupi. ${product.name} tersedia: ${product.currentStock}`, code: "INSUFFICIENT_STOCK" },
+    };
+  }
+
+  const unitPrice = Number(product.price);
+  const newSubtotal = unitPrice * quantity;
+
+  await client.$transaction(async (tx) => {
+    await tx.posOrderItem.update({
+      where: { id: existingItem.id },
+      data: { quantity, subtotal: newSubtotal },
+    });
+
+    if (quantityDiff !== 0) {
+      await tx.product.update({
+        where: { id: productId },
+        data: { currentStock: { decrement: quantityDiff } },
+      });
+
+      await tx.stockAdjustment.create({
+        data: {
+          productId,
+          quantity: -quantityDiff,
+          reason: "POS_SOLD",
+          referenceId: orderId,
+          createdBy: userId,
+        },
+      });
+    }
+
+    const result: any[] = await tx.$queryRaw`
+      SELECT COALESCE(SUM(subtotal), 0)::numeric as total FROM pos_order_items WHERE pos_order_id = ${orderId}
+    `;
+    const orderSubtotal = Number(result[0]?.total || 0);
+
+    const taxSetting = await tx.setting.findUnique({ where: { key: "tax_config" } });
+    const taxConfig = taxSetting?.value as any;
+    let taxAmount = 0;
+    if (taxConfig?.enabled) {
+      taxAmount = taxConfig.type === "PERCENTAGE"
+        ? Math.round(orderSubtotal * (taxConfig.value / 100))
+        : taxConfig.value;
+    }
+
+    await tx.posOrder.update({
+      where: { id: orderId },
+      data: { subtotal: orderSubtotal, taxAmount, total: orderSubtotal + taxAmount },
+    });
+  });
+
+  return { success: true, data: undefined };
+}
+
+export async function cancelPosTransaction(
+  orderId: string,
+  reason: string
+): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!POS_ROLES.includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const order = await client.posOrder.findUnique({
+    where: { id: orderId },
+    include: { posOrderItems: true },
+  });
+
+  if (!order) {
+    return { success: false, error: { message: "Pesanan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  if (order.status !== "COMPLETED") {
+    return { success: false, error: { message: "Hanya pesanan selesai yang bisa dibatalkan", code: "BUSINESS_RULE" } };
+  }
+
+  const userId = session.user.id!;
+
+  await client.$transaction(async (tx) => {
+    for (const item of order.posOrderItems) {
+      if (item.productId) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { currentStock: { increment: item.quantity } },
+        });
+
+        await tx.stockAdjustment.create({
+          data: {
+            productId: item.productId,
+            quantity: item.quantity,
+            reason: "RETURN",
+            referenceId: orderId,
+            notes: `Pengembalian stok karena pembatalan transaksi POS: ${reason}`,
+            createdBy: userId,
+          },
+        });
+      }
+    }
+
+    await tx.posOrder.update({
+      where: { id: orderId },
+      data: { status: "CANCELLED" },
+    });
+  });
+
+  await createAuditLog({
+    userId,
+    action: "STATUS_CHANGE",
+    entityType: "PosOrder",
+    entityId: orderId,
+    changes: {
+      status: { old: "COMPLETED", new: "CANCELLED" },
+      cancelReason: { old: null, new: reason },
+    },
+  });
+
+  return { success: true, data: undefined };
+}
+
 export async function downloadReceiptPdf(orderId: string): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();

@@ -56,12 +56,38 @@ model User {
   role             Role              @relation(fields: [roleId], references: [id])
   customer         Customer?
   createdVisits    Visit[]           @relation("VisitCreator")
+  doctorVisits     Visit[]           @relation("VisitDoctor")
   createdBillings  Billing[]         @relation("BillingCreator")
   receivedPayments Payment[]         @relation("PaymentReceiver")
   stockAdjustments StockAdjustment[] @relation("StockAdjustmentCreator")
   posOrders        PosOrder[]        @relation("PosCreator")
   auditLogs        AuditLog[]
   notifications    Notification[]
+  appointments     Appointment[]
+  doctorSchedules  DoctorSchedule[]
+  hotelBookings    HotelBooking[]
+  createdSuppliers          Supplier[]           @relation("SupplierCreator")
+  verifiedSuppliers         Supplier[]           @relation("SupplierVerifier")
+  createdPurchaseOrders     PurchaseOrder[]
+  createdGoodsReceipts      GoodsReceipt[]
+  dailyReconciliationsKasir DailyReconciliation[] @relation("ReconciliationKasir")
+  dailyReconciliationsReviewer DailyReconciliation[] @relation("ReconciliationReviewer")
+  serviceChangeRequester    ServiceChangeRequest[] @relation("ServiceChangeRequester")
+  serviceChangeApprover     ServiceChangeRequest[] @relation("ServiceChangeApprover")
+  drugChangeRequester       DrugChangeRequest[] @relation("DrugChangeRequester")
+  drugChangeApprover        DrugChangeRequest[] @relation("DrugChangeApprover")
+  productChangeRequester    ProductChangeRequest[] @relation("ProductChangeRequester")
+  productChangeApprover     ProductChangeRequest[] @relation("ProductChangeApprover")
+  supplierChangeRequester   SupplierChangeRequest[] @relation("SupplierChangeRequester")
+  supplierChangeApprover    SupplierChangeRequest[] @relation("SupplierChangeApprover")
+  stockAdjRequester         StockAdjustmentApproval[] @relation("StockAdjRequester")
+  stockAdjApprover          StockAdjustmentApproval[] @relation("StockAdjApprover")
+  discountApplier           DiscountLog[] @relation("DiscountApplier")
+  discountApprover          DiscountLog[] @relation("DiscountApprover")
+  serviceChanger            Service[] @relation("ServiceChanger")
+  drugChanger               Drug[] @relation("DrugChanger")
+  productChanger            Product[] @relation("ProductChanger")
+  invoiceCreator            Invoice[] @relation("InvoiceCreator")
   @@index([roleId])
   @@index([status])
   @@index([resetToken])
@@ -88,6 +114,8 @@ model Customer {
   invoices      Invoice[]
   posOrders     PosOrder[]
   prescriptions Prescription[]
+  appointments  Appointment[]
+  hotelBookings HotelBooking[]
   @@index([status])
   @@index([name])
   @@index([createdAt])
@@ -114,6 +142,8 @@ model Pet {
   billings      Billing[]
   invoices      Invoice[]
   prescriptions Prescription[]
+  appointments  Appointment[]
+  hotelBookings HotelBooking[]
   @@index([customerId])
   @@index([species])
   @@index([status])
@@ -138,11 +168,17 @@ model Service {
   description String?
   category    ServiceCategory
   price       Decimal         @db.Decimal(12, 2)
+  cost        Decimal?        @db.Decimal(12, 2)
   status      MasterStatus    @default(ACTIVE)
+  version     Int             @default(1)
+  changedBy   String?         @map("changed_by")
+  changedAt   DateTime?       @map("changed_at")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
-  visitItems   VisitItem[]
-  billingItems BillingItem[]
+  visitItems           VisitItem[]
+  billingItems         BillingItem[]
+  serviceChangeRequests ServiceChangeRequest[]
+  changer User? @relation("ServiceChanger", fields: [changedBy], references: [id])
   @@index([category])
   @@index([status])
   @@index([name])
@@ -167,46 +203,66 @@ model Drug {
   description     String?
   unit            DrugUnit
   pricePerUnit    Decimal      @map("price_per_unit") @db.Decimal(12, 2)
+  costPerUnit     Decimal?     @map("cost_per_unit") @db.Decimal(12, 2)
+  minimumStock    Int?         @default(0) @map("minimum_stock")
+  supplierId      String?      @map("supplier_id")
   status          MasterStatus @default(ACTIVE)
+  version         Int          @default(1)
+  changedBy       String?      @map("changed_by")
+  changedAt       DateTime?    @map("changed_at")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
   visitItems         VisitItem[]
   billingItems       BillingItem[]
   prescriptionItems  PrescriptionItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+  drugChangeRequests DrugChangeRequest[]
+  supplier           Supplier? @relation(fields: [supplierId], references: [id])
+  changer User? @relation("DrugChanger", fields: [changedBy], references: [id])
   @@index([status])
   @@index([name])
+  @@index([supplierId])
   @@map("drugs")
 }
 
 model ProductCategory {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  description String?
-  status      MasterStatus @default(ACTIVE)
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  id            String       @id @default(cuid())
+  name          String       @unique
+  description   String?
+  defaultMargin Decimal?     @map("default_margin") @db.Decimal(5, 2)
+  status        MasterStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
   products Product[]
   @@index([status])
   @@map("product_categories")
 }
 
 model Product {
-  id            String          @id @default(cuid())
-  name          String          @unique
-  categoryId    String          @map("category_id")
-  price         Decimal         @db.Decimal(12, 2)
-  description   String?
-  image         String?
-  barcode       String?
-  currentStock  Int             @default(0) @map("current_stock")
-  reorderPoint  Int             @default(10) @map("reorder_point")
-  status        MasterStatus    @default(ACTIVE)
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
-  category         ProductCategory   @relation(fields: [categoryId], references: [id])
-  posOrderItems    PosOrderItem[]
-  billingItems     BillingItem[]
-  stockAdjustments StockAdjustment[]
+  id              String          @id @default(cuid())
+  name            String          @unique
+  categoryId      String          @map("category_id")
+  price           Decimal         @db.Decimal(12, 2)
+  cost            Decimal?        @db.Decimal(12, 2)
+  minimumMargin   Decimal?        @map("minimum_margin") @db.Decimal(5, 2)
+  description     String?
+  image           String?
+  barcode         String?
+  currentStock    Int             @default(0) @map("current_stock")
+  reorderPoint    Int             @default(10) @map("reorder_point")
+  status          MasterStatus    @default(ACTIVE)
+  version         Int             @default(1)
+  changedBy       String?         @map("changed_by")
+  changedAt       DateTime?       @map("changed_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  category              ProductCategory    @relation(fields: [categoryId], references: [id])
+  posOrderItems         PosOrderItem[]
+  billingItems          BillingItem[]
+  stockAdjustments      StockAdjustment[]
+  purchaseOrderItems    PurchaseOrderItem[]
+  productChangeRequests ProductChangeRequest[]
+  changer User? @relation("ProductChanger", fields: [changedBy], references: [id])
   @@index([categoryId])
   @@index([barcode])
   @@index([status])
@@ -225,6 +281,8 @@ model Visit {
   visitNumber       String      @unique @map("visit_number")
   customerId        String      @map("customer_id")
   petId             String      @map("pet_id")
+  doctorId          String?     @map("doctor_id")
+  appointmentId     String?     @map("appointment_id")
   visitDate         DateTime    @map("visit_date")
   chiefComplaint    String      @map("chief_complaint")
   physicalExamNotes String?     @map("physical_exam_notes")
@@ -237,10 +295,12 @@ model Visit {
   createdBy         String      @map("created_by")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
-  customer   Customer   @relation(fields: [customerId], references: [id])
-  pet        Pet        @relation(fields: [petId], references: [id])
-  creator    User       @relation("VisitCreator", fields: [createdBy], references: [id])
-  visitItems VisitItem[]
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  pet         Pet         @relation(fields: [petId], references: [id])
+  creator     User        @relation("VisitCreator", fields: [createdBy], references: [id])
+  doctor      User?       @relation("VisitDoctor", fields: [doctorId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  visitItems  VisitItem[]
   prescription Prescription?
 
   @@index([customerId])
@@ -248,6 +308,7 @@ model Visit {
   @@index([visitDate])
   @@index([status])
   @@index([createdBy])
+  @@index([doctorId])
   @@index([customerId, visitDate])
   @@map("visits")
 }
@@ -355,11 +416,14 @@ model Invoice {
   paidAmount     Decimal       @default(0) @map("paid_amount") @db.Decimal(12, 2)
   status         InvoiceStatus @default(UNPAID)
   notes          String?
+  createdBy      String?       @map("created_by")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
   customer     Customer     @relation(fields: [customerId], references: [id])
   pet          Pet?         @relation(fields: [petId], references: [id])
+  creator      User?        @relation("InvoiceCreator", fields: [createdBy], references: [id])
   invoiceItems InvoiceItem[]
+  discountLogs DiscountLog[]
   @@index([customerId])
   @@index([status])
   @@index([invoiceDate])
@@ -508,6 +572,7 @@ model StockAdjustment {
   createdAt   DateTime    @default(now()) @map("created_at")
   product Product @relation(fields: [productId], references: [id])
   creator User    @relation("StockAdjustmentCreator", fields: [createdBy], references: [id])
+  approvalRequest StockAdjustmentApproval?
   @@index([productId])
   @@index([createdAt])
   @@index([reason])
@@ -521,6 +586,8 @@ enum AuditAction {
   ARCHIVE
   PAYMENT
   STATUS_CHANGE
+  APPROVE
+  REJECT
 }
 
 model AuditLog {
@@ -592,4 +659,384 @@ enum Itemtype {
   SERVICE
   DRUG
   PRODUCT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum HotelBookingStatus {
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum HotelRoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLIST
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PurchaseOrderStatus {
+  PENDING
+  PARTIAL_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum ReconciliationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Appointment {
+  id                String            @id @default(cuid())
+  appointmentNumber String            @unique @map("appointment_number")
+  customerId        String            @map("customer_id")
+  petId             String            @map("pet_id")
+  doctorId          String            @map("doctor_id")
+  appointmentDate   DateTime          @map("appointment_date")
+  time              String
+  type              String?
+  status            AppointmentStatus @default(PENDING)
+  notes             String?
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  customer Customer @relation(fields: [customerId], references: [id])
+  pet      Pet      @relation(fields: [petId], references: [id])
+  doctor   User     @relation(fields: [doctorId], references: [id])
+  visits   Visit[]
+  @@index([customerId])
+  @@index([petId])
+  @@index([doctorId])
+  @@index([appointmentDate])
+  @@index([status])
+  @@map("appointments")
+}
+
+model DoctorSchedule {
+  id            String   @id @default(cuid())
+  doctorId      String   @map("doctor_id")
+  dayOfWeek     Int      @map("day_of_week")
+  startTime     String   @map("start_time")
+  endTime       String   @map("end_time")
+  slotDuration  Int      @default(30) @map("slot_duration")
+  maxSlots      Int      @default(10) @map("max_slots")
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  doctor User @relation(fields: [doctorId], references: [id])
+  @@unique([doctorId, dayOfWeek])
+  @@index([doctorId])
+  @@map("doctor_schedules")
+}
+
+model HotelRoom {
+  id               String          @id @default(cuid())
+  roomNumber       String          @unique @map("room_number")
+  name             String
+  type             String
+  capacity         Int             @default(1)
+  amenities        String?
+  dailyRate        Decimal         @map("daily_rate") @db.Decimal(12, 2)
+  currentOccupancy Int             @default(0) @map("current_occupancy")
+  status           HotelRoomStatus @default(AVAILABLE)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  bookings HotelBooking[]
+  @@index([status])
+  @@map("hotel_rooms")
+}
+
+model HotelBooking {
+  id             String              @id @default(cuid())
+  bookingNumber  String              @unique @map("booking_number")
+  customerId     String              @map("customer_id")
+  petId          String              @map("pet_id")
+  roomId         String              @map("room_id")
+  checkInDate    DateTime            @map("check_in_date")
+  checkOutDate   DateTime            @map("check_out_date")
+  dailyRate      Decimal             @map("daily_rate") @db.Decimal(12, 2)
+  totalDays      Int                 @map("total_days")
+  subtotal       Decimal             @db.Decimal(12, 2)
+  serviceFee     Decimal             @default(0) @map("service_fee") @db.Decimal(12, 2)
+  discountAmount Decimal             @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  total          Decimal             @db.Decimal(12, 2)
+  status         HotelBookingStatus  @default(CONFIRMED)
+  notes          String?
+  createdBy      String              @map("created_by")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  customer Customer        @relation(fields: [customerId], references: [id])
+  pet      Pet             @relation(fields: [petId], references: [id])
+  room     HotelRoom       @relation(fields: [roomId], references: [id])
+  creator  User            @relation(fields: [createdBy], references: [id])
+  services HotelBookingService[]
+  @@index([customerId])
+  @@index([petId])
+  @@index([roomId])
+  @@index([checkInDate])
+  @@index([status])
+  @@map("hotel_bookings")
+}
+
+model HotelBookingService {
+  id          String   @id @default(cuid())
+  bookingId   String   @map("booking_id")
+  serviceType String   @map("service_type")
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 2)
+  subtotal    Decimal  @db.Decimal(12, 2)
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  booking HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  @@index([bookingId])
+  @@map("hotel_booking_services")
+}
+
+model Supplier {
+  id              String         @id @default(cuid())
+  name            String         @unique
+  phone           String?
+  email           String?
+  address         String?
+  city            String?
+  postalCode      String?        @map("postal_code")
+  contactPerson   String?        @map("contact_person")
+  paymentTerms    String?        @map("payment_terms")
+  specialization  String?
+  status          SupplierStatus @default(ACTIVE)
+  verifiedBy      String?        @map("verified_by")
+  verifiedAt      DateTime?      @map("verified_at")
+  createdBy       String         @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  creator             User              @relation("SupplierCreator", fields: [createdBy], references: [id])
+  verifier            User?             @relation("SupplierVerifier", fields: [verifiedBy], references: [id])
+  drugs               Drug[]
+  purchaseOrders      PurchaseOrder[]
+  supplierChangeRequests SupplierChangeRequest[]
+  @@index([status])
+  @@index([name])
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id            String              @id @default(cuid())
+  poNumber      String              @unique @map("po_number")
+  supplierId    String              @map("supplier_id")
+  orderDate     DateTime            @map("order_date")
+  requiredDate  DateTime?           @map("required_date")
+  status        PurchaseOrderStatus @default(PENDING)
+  totalAmount   Decimal             @map("total_amount") @db.Decimal(12, 2)
+  notes         String?
+  createdBy     String              @map("created_by")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  supplier  Supplier          @relation(fields: [supplierId], references: [id])
+  creator   User              @relation(fields: [createdBy], references: [id])
+  items     PurchaseOrderItem[]
+  receipts  GoodsReceipt[]
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String    @id @default(cuid())
+  poId             String    @map("po_id")
+  productId        String?   @map("product_id")
+  drugId           String?   @map("drug_id")
+  quantity         Int
+  unitPrice        Decimal   @map("unit_price") @db.Decimal(12, 2)
+  receivedQuantity Int       @default(0) @map("received_quantity")
+  receivedAt       DateTime? @map("received_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product       Product?      @relation(fields: [productId], references: [id])
+  drug          Drug?         @relation(fields: [drugId], references: [id])
+  @@index([poId])
+  @@map("purchase_order_items")
+}
+
+model GoodsReceipt {
+  id           String    @id @default(cuid())
+  grNumber     String    @unique @map("gr_number")
+  poId         String    @map("po_id")
+  receivedDate DateTime  @map("received_date")
+  createdBy    String    @map("created_by")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id])
+  creator       User          @relation(fields: [createdBy], references: [id])
+  @@index([poId])
+  @@map("goods_receipts")
+}
+
+model DailyReconciliation {
+  id              String              @id @default(cuid())
+  date            DateTime            @db.Date
+  kasirId         String              @map("kasir_id")
+  totalPOS        Decimal             @map("total_pos") @db.Decimal(12, 2)
+  totalInvoice    Decimal             @map("total_invoice") @db.Decimal(12, 2)
+  totalPayments   Decimal             @map("total_payments") @db.Decimal(12, 2)
+  expectedCash    Decimal             @map("expected_cash") @db.Decimal(12, 2)
+  actualCash      Decimal             @map("actual_cash") @db.Decimal(12, 2)
+  cashDifference  Decimal             @default(0) @map("cash_difference") @db.Decimal(12, 2)
+  expectedCard    Decimal             @map("expected_card") @db.Decimal(12, 2)
+  actualCard      Decimal             @map("actual_card") @db.Decimal(12, 2)
+  cardDifference  Decimal             @default(0) @map("card_difference") @db.Decimal(12, 2)
+  notes           String?
+  status          ReconciliationStatus @default(PENDING)
+  reviewedBy      String?             @map("reviewed_by")
+  reviewedAt      DateTime?           @map("reviewed_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  kasir    User  @relation("ReconciliationKasir", fields: [kasirId], references: [id])
+  reviewer User? @relation("ReconciliationReviewer", fields: [reviewedBy], references: [id])
+  @@unique([date, kasirId])
+  @@index([date])
+  @@index([status])
+  @@map("daily_reconciliations")
+}
+
+model ServiceChangeRequest {
+  id           String         @id @default(cuid())
+  serviceId    String         @map("service_id")
+  requestedBy  String         @map("requested_by")
+  oldPrice     Decimal        @map("old_price") @db.Decimal(12, 2)
+  newPrice     Decimal        @map("new_price") @db.Decimal(12, 2)
+  reason       String
+  status       ApprovalStatus @default(PENDING)
+  approvedBy   String?        @map("approved_by")
+  requestedAt  DateTime       @default(now()) @map("requested_at")
+  approvedAt   DateTime?      @map("approved_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  service  Service @relation(fields: [serviceId], references: [id])
+  requester User    @relation("ServiceChangeRequester", fields: [requestedBy], references: [id])
+  approver  User?   @relation("ServiceChangeApprover", fields: [approvedBy], references: [id])
+  @@index([serviceId])
+  @@index([status])
+  @@map("service_change_requests")
+}
+
+model DrugChangeRequest {
+  id           String         @id @default(cuid())
+  drugId       String         @map("drug_id")
+  requestedBy  String         @map("requested_by")
+  oldPrice     Decimal        @map("old_price") @db.Decimal(12, 2)
+  newPrice     Decimal        @map("new_price") @db.Decimal(12, 2)
+  reason       String
+  status       ApprovalStatus @default(PENDING)
+  approvedBy   String?        @map("approved_by")
+  requestedAt  DateTime       @default(now()) @map("requested_at")
+  approvedAt   DateTime?      @map("approved_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  drug     Drug  @relation(fields: [drugId], references: [id])
+  requester User  @relation("DrugChangeRequester", fields: [requestedBy], references: [id])
+  approver  User? @relation("DrugChangeApprover", fields: [approvedBy], references: [id])
+  @@index([drugId])
+  @@index([status])
+  @@map("drug_change_requests")
+}
+
+model ProductChangeRequest {
+  id           String         @id @default(cuid())
+  productId    String         @map("product_id")
+  requestedBy  String         @map("requested_by")
+  oldPrice     Decimal        @map("old_price") @db.Decimal(12, 2)
+  newPrice     Decimal        @map("new_price") @db.Decimal(12, 2)
+  reason       String
+  status       ApprovalStatus @default(PENDING)
+  approvedBy   String?        @map("approved_by")
+  requestedAt  DateTime       @default(now()) @map("requested_at")
+  approvedAt   DateTime?      @map("approved_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  product  Product @relation(fields: [productId], references: [id])
+  requester User    @relation("ProductChangeRequester", fields: [requestedBy], references: [id])
+  approver  User?   @relation("ProductChangeApprover", fields: [approvedBy], references: [id])
+  @@index([productId])
+  @@index([status])
+  @@map("product_change_requests")
+}
+
+model SupplierChangeRequest {
+  id           String         @id @default(cuid())
+  supplierId   String         @map("supplier_id")
+  requestedBy  String         @map("requested_by")
+  changeType   String         @map("change_type")
+  oldData      Json?          @map("old_data")
+  newData      Json?          @map("new_data")
+  reason       String
+  status       ApprovalStatus @default(PENDING)
+  approvedBy   String?        @map("approved_by")
+  requestedAt  DateTime       @default(now()) @map("requested_at")
+  approvedAt   DateTime?      @map("approved_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  supplier  Supplier @relation(fields: [supplierId], references: [id])
+  requester User     @relation("SupplierChangeRequester", fields: [requestedBy], references: [id])
+  approver  User?    @relation("SupplierChangeApprover", fields: [approvedBy], references: [id])
+  @@index([supplierId])
+  @@index([status])
+  @@map("supplier_change_requests")
+}
+
+model StockAdjustmentApproval {
+  id            String         @id @default(cuid())
+  adjustmentId  String         @unique @map("adjustment_id")
+  requestedBy   String         @map("requested_by")
+  quantity      Int
+  reason        String
+  notes         String?
+  status        ApprovalStatus @default(PENDING)
+  approvedBy    String?        @map("approved_by")
+  requestedAt   DateTime       @default(now()) @map("requested_at")
+  approvedAt    DateTime?      @map("approved_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  adjustment StockAdjustment @relation(fields: [adjustmentId], references: [id])
+  requester  User             @relation("StockAdjRequester", fields: [requestedBy], references: [id])
+  approver   User?            @relation("StockAdjApprover", fields: [approvedBy], references: [id])
+  @@index([status])
+  @@map("stock_adjustment_approvals")
+}
+
+model DiscountLog {
+  id               String         @id @default(cuid())
+  invoiceId        String         @map("invoice_id")
+  appliedBy        String         @map("applied_by")
+  discountAmount   Decimal        @map("discount_amount") @db.Decimal(12, 2)
+  discountPercent  Decimal?       @map("discount_percent") @db.Decimal(5, 2)
+  reason           String
+  requiresApproval Boolean        @default(false) @map("requires_approval")
+  approvalStatus   ApprovalStatus @default(APPROVED)
+  approvedBy       String?        @map("approved_by")
+  appliedAt        DateTime       @default(now()) @map("applied_at")
+  approvedAt       DateTime?      @map("approved_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  applier User    @relation("DiscountApplier", fields: [appliedBy], references: [id])
+  approver User?  @relation("DiscountApprover", fields: [approvedBy], references: [id])
+  @@index([invoiceId])
+  @@index([appliedBy])
+  @@index([approvalStatus])
+  @@map("discount_logs")
 }

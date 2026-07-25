@@ -156,6 +156,143 @@ export async function getPayments({ page = 1, search = "" }: { page?: number; se
   return { data, total, page, pageSize: PAGE_SIZE, totalPages: Math.ceil(total / PAGE_SIZE) };
 }
 
+export async function voidPayment(
+  paymentId: string,
+  reason: string
+): Promise<ActionResult> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const payment = await client.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) {
+    return { success: false, error: { message: "Pembayaran tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  if (payment.status !== "PAID") {
+    return { success: false, error: { message: "Hanya pembayaran dengan status PAID yang bisa di-void", code: "BUSINESS_RULE" } };
+  }
+
+  const paymentAge = Date.now() - new Date(payment.createdAt).getTime();
+  const twentyFourHours = 24 * 60 * 60 * 1000;
+  if (paymentAge > twentyFourHours) {
+    return { success: false, error: { message: "Pembayaran hanya bisa di-void dalam 24 jam", code: "BUSINESS_RULE" } };
+  }
+
+  const previousStatus = payment.status;
+
+  await client.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: { status: "FAILED", notes: reason },
+    });
+
+    if (payment.payableType === "Invoice") {
+      const invoice = await tx.invoice.findUnique({ where: { id: payment.payableId } });
+      if (invoice) {
+        const newPaidAmount = Number(invoice.paidAmount) - Number(payment.amount);
+        const newStatus = newPaidAmount <= 0 ? "UNPAID" : "PARTIAL";
+
+        await tx.invoice.update({
+          where: { id: payment.payableId },
+          data: {
+            paidAmount: Math.max(0, newPaidAmount),
+            status: newStatus as any,
+          },
+        });
+
+        if (invoice.sourceType === "VISIT") {
+          await tx.visit.update({ where: { id: invoice.sourceId }, data: { status: "COMPLETED" } });
+        } else if (invoice.sourceType === "BILLING") {
+          await tx.billing.update({ where: { id: invoice.sourceId }, data: { status: "OPEN" } });
+        }
+      }
+    }
+  });
+
+  await createAuditLog({
+    userId: session.user.id,
+    action: "STATUS_CHANGE",
+    entityType: "Payment",
+    entityId: paymentId,
+    changes: {
+      status: { old: previousStatus, new: "FAILED" },
+      voidReason: { old: null, new: reason },
+      amount: { old: Number(payment.amount), new: 0 },
+    },
+  });
+
+  return { success: true, data: undefined };
+}
+
+export async function printReceipt(
+  paymentId: string
+): Promise<ActionResult<any>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const payment = await client.payment.findUnique({
+    where: { id: paymentId },
+    include: { receiver: { select: { name: true } } },
+  });
+
+  if (!payment) {
+    return { success: false, error: { message: "Pembayaran tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  let invoice = null;
+  if (payment.payableType === "Invoice") {
+    invoice = await client.invoice.findUnique({
+      where: { id: payment.payableId },
+      include: {
+        customer: { select: { name: true, phone: true, address: true } },
+        invoiceItems: true,
+      },
+    });
+  }
+
+  const receiptData = {
+    paymentNumber: payment.paymentNumber,
+    paymentDate: payment.createdAt,
+    paymentMethod: payment.paymentMethod,
+    amount: Number(payment.amount),
+    status: payment.status,
+    cashier: payment.receiver.name,
+    invoice: invoice
+      ? {
+          invoiceNumber: invoice.invoiceNumber,
+          customer: invoice.customer,
+          items: invoice.invoiceItems.map((item: any) => ({
+            name: item.itemName,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            subtotal: Number(item.subtotal),
+          })),
+          subtotal: Number(invoice.subtotal),
+          taxAmount: Number(invoice.taxAmount),
+          total: Number(invoice.total),
+        }
+      : null,
+  };
+
+  return { success: true, data: receiptData };
+}
+
 export async function deletePayment(_paymentId: string): Promise<ActionResult> {
   return { success: false, error: { message: "Pembayaran tidak bisa dihapus", code: "BUSINESS_RULE" } };
 }

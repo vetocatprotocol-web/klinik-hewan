@@ -21,6 +21,17 @@ const statusColors: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
   FAILED: "bg-red-100 text-red-800 border-red-200",
   ARCHIVED: "bg-gray-100 text-gray-800 border-gray-200",
+  CONFIRMED: "bg-blue-100 text-blue-800 border-blue-200",
+  CANCELLED: "bg-red-100 text-red-800 border-red-200",
+  NO_SHOW: "bg-orange-100 text-orange-800 border-orange-200",
+  BLACKLIST: "bg-red-100 text-red-800 border-red-200",
+  AVAILABLE: "bg-green-100 text-green-800 border-green-200",
+  OCCUPIED: "bg-blue-100 text-blue-800 border-blue-200",
+  MAINTENANCE: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  CHECKED_IN: "bg-blue-100 text-blue-800 border-blue-200",
+  CHECKED_OUT: "bg-gray-100 text-gray-800 border-gray-200",
+  APPROVED: "bg-green-100 text-green-800 border-green-200",
+  REJECTED: "bg-red-100 text-red-800 border-red-200",
 };
 
 const statusLabels: Record<string, string> = {
@@ -36,6 +47,17 @@ const statusLabels: Record<string, string> = {
   PENDING: "Pending",
   FAILED: "Gagal",
   ARCHIVED: "Diarsipkan",
+  CONFIRMED: "Dikonfirmasi",
+  CANCELLED: "Dibatalkan",
+  NO_SHOW: "Tidak Hadir",
+  BLACKLIST: "Blacklist",
+  AVAILABLE: "Tersedia",
+  OCCUPIED: "Terisi",
+  MAINTENANCE: "Perawatan",
+  CHECKED_IN: "Check In",
+  CHECKED_OUT: "Check Out",
+  APPROVED: "Disetujui",
+  REJECTED: "Ditolak",
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {

@@ -62,7 +62,7 @@ export async function deleteFile(path: string): Promise<ActionResult> {
   }
 
   const role = (session.user as any).role;
-  if (!["OWNER", "ADMIN"].includes(role)) {
+  if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 

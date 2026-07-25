@@ -25,6 +25,12 @@ import {
   ChevronRight,
   LogOut,
   CircleDollarSign,
+  Calendar,
+  Building2,
+  Truck,
+  Wallet,
+  CheckCircle,
+  TrendingUp,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +55,12 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   Clock,
   User,
   CircleDollarSign,
+  Calendar,
+  Building2,
+  Truck,
+  Wallet,
+  CheckCircle,
+  TrendingUp,
 };
 
 interface SidebarProps {

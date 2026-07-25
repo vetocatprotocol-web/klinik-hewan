@@ -27,11 +27,6 @@ async function main() {
       create: { name: "KASIR", description: "Kasir" },
     }),
     prisma.role.upsert({
-      where: { name: "ADMIN" },
-      update: {},
-      create: { name: "ADMIN", description: "Admin" },
-    }),
-    prisma.role.upsert({
       where: { name: "CUSTOMER" },
       update: {},
       create: { name: "CUSTOMER", description: "Pelanggan" },
@@ -41,7 +36,6 @@ async function main() {
   const ownerRole = roles.find((r) => r.name === "OWNER")!;
   const dokterRole = roles.find((r) => r.name === "DOKTER")!;
   const kasirRole = roles.find((r) => r.name === "KASIR")!;
-  const adminRole = roles.find((r) => r.name === "ADMIN")!;
 
   // Seed Permissions
   const permissions = [
@@ -123,26 +117,6 @@ async function main() {
     });
   }
 
-  // Admin permissions
-  const adminPermissions = permissionRecords
-    .filter((p) =>
-      [
-        "view_dashboard",
-        "manage_users",
-        "manage_stock",
-        "view_reports",
-      ].includes(p.name)
-    )
-    .map((p) => p.id);
-
-  for (const permId of adminPermissions) {
-    await prisma.rolePermission.upsert({
-      where: { roleId_permissionId: { roleId: adminRole.id, permissionId: permId } },
-      update: {},
-      create: { roleId: adminRole.id, permissionId: permId },
-    });
-  }
-
   // Seed default owner user
   const hashedPassword = await bcrypt.hash("admin123", 12);
   await prisma.user.upsert({
@@ -181,19 +155,6 @@ async function main() {
       phone: "081234567892",
       password: hashedPassword,
       roleId: kasirRole.id,
-      status: "ACTIVE",
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { email: "admin1@klinik.com" },
-    update: {},
-    create: {
-      name: "Admin Klinik",
-      email: "admin1@klinik.com",
-      phone: "081234567893",
-      password: hashedPassword,
-      roleId: adminRole.id,
       status: "ACTIVE",
     },
   });
@@ -349,6 +310,10 @@ async function main() {
         receiptPrefix: "RCP",
         paymentPrefix: "PAY",
         prescriptionPrefix: "RX",
+        appointmentPrefix: "APT",
+        bookingPrefix: "HTL",
+        poPrefix: "PO",
+        grPrefix: "GR",
       },
     },
   ];
@@ -358,6 +323,96 @@ async function main() {
       where: { key: setting.key },
       update: { value: setting.value },
       create: { key: setting.key, value: setting.value },
+    });
+  }
+
+  // Seed hotel rooms
+  const hotelRooms = [
+    { roomNumber: "101", name: "Kamar Kucing 1", type: "KUCING", capacity: 1, dailyRate: 75000, amenities: "Kasur, kotak pasir, mainan" },
+    { roomNumber: "102", name: "Kamar Kucing 2", type: "KUCING", capacity: 1, dailyRate: 75000, amenities: "Kasur, kotak pasir, mainan" },
+    { roomNumber: "103", name: "Kamar Kucing 3", type: "KUCING", capacity: 2, dailyRate: 100000, amenities: "Kasur besar, kotak pasir, mainan" },
+    { roomNumber: "201", name: "Kamar Anjing 1", type: "ANJING", capacity: 1, dailyRate: 100000, amenities: "Kasur, mainan, tali" },
+    { roomNumber: "202", name: "Kamar Anjing 2", type: "ANJING", capacity: 1, dailyRate: 100000, amenities: "Kasur, mainan, tali" },
+    { roomNumber: "203", name: "Kamar Anjing 3", type: "ANJING", capacity: 2, dailyRate: 150000, amenities: "Kasur besar, mainan, tali, area bermain" },
+    { roomNumber: "301", name: "Kamar VIP 1", type: "VIP", capacity: 1, dailyRate: 200000, amenities: "Kasur premium, CCTV, AC, mainan premium" },
+    { roomNumber: "302", name: "Kamar VIP 2", type: "VIP", capacity: 2, dailyRate: 250000, amenities: "Kasur premium, CCTV, AC, mainan premium, area bermain pribadi" },
+  ];
+
+  for (const room of hotelRooms) {
+    await prisma.hotelRoom.upsert({
+      where: { roomNumber: room.roomNumber },
+      update: {},
+      create: room,
+    });
+  }
+
+  // Seed default supplier
+  await prisma.supplier.upsert({
+    where: { name: "PetShop Supply" },
+    update: {},
+    create: {
+      name: "PetShop Supply",
+      phone: "021-5551234",
+      email: "order@petshopsupply.co.id",
+      address: "Jl. Raya Utama No. 100",
+      city: "Jakarta",
+      contactPerson: "Budi Santoso",
+      paymentTerms: "Net 30",
+      specialization: "Makanan dan Aksesoris Hewan",
+      status: "ACTIVE",
+      createdBy: ownerRole.id,
+    },
+  });
+
+  await prisma.supplier.upsert({
+    where: { name: "VetMed Indonesia" },
+    update: {},
+    create: {
+      name: "VetMed Indonesia",
+      phone: "021-5559876",
+      email: "sales@vetmed.co.id",
+      address: "Jl. Kesehatan No. 50",
+      city: "Jakarta",
+      contactPerson: "Siti Rahayu",
+      paymentTerms: "Net 60",
+      specialization: "Obat dan Vaksin Hewan",
+      status: "ACTIVE",
+      createdBy: ownerRole.id,
+    },
+  });
+
+  // Seed doctor schedules
+  const dokterUser = await prisma.user.findFirst({ where: { roleId: dokterRole.id } });
+  if (dokterUser) {
+    // Monday-Friday: 08:00-16:00, 30min slots
+    for (let day = 1; day <= 5; day++) {
+      await prisma.doctorSchedule.upsert({
+        where: { doctorId_dayOfWeek: { doctorId: dokterUser.id, dayOfWeek: day } },
+        update: {},
+        create: {
+          doctorId: dokterUser.id,
+          dayOfWeek: day,
+          startTime: "08:00",
+          endTime: "16:00",
+          slotDuration: 30,
+          maxSlots: 16,
+          status: "ACTIVE",
+        },
+      });
+    }
+    // Saturday: 08:00-12:00
+    await prisma.doctorSchedule.upsert({
+      where: { doctorId_dayOfWeek: { doctorId: dokterUser.id, dayOfWeek: 6 } },
+      update: {},
+      create: {
+        doctorId: dokterUser.id,
+        dayOfWeek: 6,
+        startTime: "08:00",
+        endTime: "12:00",
+        slotDuration: 30,
+        maxSlots: 8,
+        status: "ACTIVE",
+      },
     });
   }
 
