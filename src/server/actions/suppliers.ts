@@ -351,6 +351,61 @@ export async function rejectSupplier(
   return { success: true, data: undefined };
 }
 
+export async function listSuppliers({
+  search = "",
+  status,
+  page = 1,
+  pageSize = 20,
+}: {
+  search?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const client = await prisma();
+  const where: any = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { contactPerson: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+    ];
+  }
+  if (status) where.status = status;
+
+  const [data, total] = await Promise.all([
+    client.supplier.findMany({
+      where,
+      include: {
+        _count: { select: { purchaseOrders: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    client.supplier.count({ where }),
+  ]);
+
+  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export async function getSupplierById(id: string) {
+  const client = await prisma();
+  return client.supplier.findUnique({
+    where: { id },
+    include: {
+      purchaseOrders: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        include: {
+          items: true,
+        },
+      },
+      _count: { select: { purchaseOrders: true } },
+    },
+  });
+}
+
 export async function getSupplierPerformance(supplierId: string): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
