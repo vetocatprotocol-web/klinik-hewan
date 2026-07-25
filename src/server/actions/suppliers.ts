@@ -425,7 +425,7 @@ export async function getSupplierPerformance(supplierId: string): Promise<Action
 
   const purchaseOrders = await client.purchaseOrder.findMany({
     where: { supplierId },
-    include: { items: true },
+    include: { items: true, receipts: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -436,7 +436,7 @@ export async function getSupplierPerformance(supplierId: string): Promise<Action
   const onTimePOs = deliveredPOs.filter((po) => {
     if (!po.requiredDate) return true;
     const lastReceipt = po.receipts.length > 0
-      ? po.receipts.reduce((latest, r) => r.receivedDate > latest.receivedDate ? r : latest)
+      ? po.receipts.reduce((latest: any, r: any) => r.receivedDate > latest.receivedDate ? r : latest)
       : null;
     if (!lastReceipt) return true;
     return lastReceipt.receivedDate <= po.requiredDate;
@@ -453,7 +453,7 @@ export async function getSupplierPerformance(supplierId: string): Promise<Action
   const leadTimes = deliveredPOs
     .filter((po) => po.receipts.length > 0)
     .map((po) => {
-      const lastReceipt = po.receipts.reduce((latest, r) =>
+      const lastReceipt = po.receipts.reduce((latest: any, r: any) =>
         r.receivedDate > latest.receivedDate ? r : latest
       );
       return lastReceipt.receivedDate.getTime() - po.orderDate.getTime();
@@ -495,60 +495,6 @@ export async function getCancelledPoHistory(): Promise<ActionResult<any[]>> {
   });
 
   return { success: true, data: cancelledPOs };
-}
-
-  search = "",
-  status,
-  page = 1,
-  pageSize = 20,
-}: {
-  search?: string;
-  status?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const client = await prisma();
-  const where: any = {};
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { contactPerson: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } },
-    ];
-  }
-  if (status) where.status = status;
-
-  const [data, total] = await Promise.all([
-    client.supplier.findMany({
-      where,
-      include: {
-        _count: { select: { purchaseOrders: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    client.supplier.count({ where }),
-  ]);
-
-  return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
-}
-
-export async function getSupplierById(id: string) {
-  const client = await prisma();
-  return client.supplier.findUnique({
-    where: { id },
-    include: {
-      purchaseOrders: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: {
-          items: true,
-        },
-      },
-      _count: { select: { purchaseOrders: true } },
-    },
-  });
 }
 
 export async function createPurchaseOrder(

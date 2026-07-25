@@ -1,0 +1,8 @@
+{
+    "mimo-copilot.modelIdOverrides": {
+        "mimo-v2.5-pro-ultraspeed": "sk-s9xc1pu3pt3l87bc8kjq006sp4yk8aktmgm7u9ctuz27oq0g",
+        "mimo-v2.5-pro": "sk-s9xc1pu3pt3l87bc8kjq006sp4yk8aktmgm7u9ctuz27oq0g",
+        "mimo-v2.5": "sk-s9xc1pu3pt3l87bc8kjq006sp4yk8aktmgm7u9ctuz27oq0g"
+    },
+    "mimo-copilot.maxTokens": 500
+}

@@ -9,6 +9,7 @@ import {
   approveStockAdjustment,
   rejectStockAdjustment,
 } from "@/server/actions/approvals";
+import { approveSupplier, rejectSupplier } from "@/server/actions/suppliers";
 import { getPendingApprovals } from "@/server/actions/approvals";
 import { DataTable, type ColumnDef } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
@@ -159,6 +160,9 @@ export default function ApprovalsPage() {
           case "stock":
             result = await approveStockAdjustment(item.id);
             break;
+          case "supplier":
+            result = await approveSupplier(item.id);
+            break;
           default:
             return;
         }
@@ -197,6 +201,9 @@ export default function ApprovalsPage() {
             break;
           case "stock":
             result = await rejectStockAdjustment(selectedItem.id, rejectReason);
+            break;
+          case "supplier":
+            result = await rejectSupplier(selectedItem.id, rejectReason);
             break;
           default:
             return;

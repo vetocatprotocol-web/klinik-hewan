@@ -439,3 +439,109 @@ export async function getAvailableRooms(
 
   return { success: true, data: rooms };
 }
+
+export async function getHotelOccupancy(
+  dateFrom?: string,
+  dateTo?: string
+): Promise<ActionResult<any>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const totalRooms = await client.hotelRoom.count({
+    where: { status: { not: "MAINTENANCE" } },
+  });
+
+  const from = dateFrom ? new Date(dateFrom) : new Date();
+  const to = dateTo ? new Date(dateTo) : new Date();
+
+  const occupiedBookings = await client.hotelBooking.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      checkInDate: { lt: to },
+      checkOutDate: { gt: from },
+    },
+    select: { roomId: true },
+  });
+
+  const occupiedRoomIds = new Set(occupiedBookings.map((b) => b.roomId));
+  const occupiedRooms = occupiedRoomIds.size;
+  const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
+
+  const revenueBookings = await client.hotelBooking.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"] },
+      checkInDate: { gte: from },
+      checkOutDate: { lte: to },
+    },
+    select: { total: true },
+  });
+
+  const revenue = revenueBookings.reduce((sum, b) => sum + Number(b.total), 0);
+
+  return {
+    success: true,
+    data: {
+      totalRooms,
+      occupiedRooms,
+      occupancyRate: Math.round(occupancyRate * 100) / 100,
+      revenue,
+    },
+  };
+}
+
+export async function getHotelRevenue(
+  dateFrom?: string,
+  dateTo?: string
+): Promise<ActionResult<any>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const from = dateFrom ? new Date(dateFrom) : new Date(new Date().setDate(1));
+  const to = dateTo ? new Date(dateTo) : new Date();
+
+  const bookings = await client.hotelBooking.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN", "CHECKED_OUT"] },
+      checkInDate: { gte: from },
+      checkOutDate: { lte: to },
+    },
+    include: { room: { select: { type: true, dailyRate: true } } },
+  });
+
+  const totalRevenue = bookings.reduce((sum, b) => sum + Number(b.total), 0);
+
+  const byRoomType: Record<string, number> = {};
+  for (const booking of bookings) {
+    const type = booking.room.type;
+    byRoomType[type] = (byRoomType[type] || 0) + Number(booking.total);
+  }
+
+  const totalDays = bookings.reduce((sum, b) => sum + b.totalDays, 0);
+  const totalDailyRates = bookings.reduce((sum, b) => sum + Number(b.dailyRate), 0);
+  const avgDailyRate = bookings.length > 0 ? totalDailyRates / bookings.length : 0;
+
+  return {
+    success: true,
+    data: {
+      totalRevenue,
+      byRoomType,
+      avgDailyRate: Math.round(avgDailyRate * 100) / 100,
+    },
+  };
+}

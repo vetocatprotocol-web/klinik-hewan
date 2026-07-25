@@ -546,3 +546,92 @@ export async function archiveProductCategory(id: string): Promise<ActionResult> 
 
   return { success: true, data: undefined };
 }
+
+// ─── Change History ──────────────────────────────────────
+
+export async function getServiceChangeHistory(serviceId: string): Promise<ActionResult<any[]>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const service = await client.service.findUnique({ where: { id: serviceId } });
+  if (!service) {
+    return { success: false, error: { message: "Layanan tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const history = await client.serviceChangeRequest.findMany({
+    where: { serviceId },
+    include: {
+      requester: { select: { name: true } },
+      approver: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return { success: true, data: history };
+}
+
+export async function getDrugChangeHistory(drugId: string): Promise<ActionResult<any[]>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const drug = await client.drug.findUnique({ where: { id: drugId } });
+  if (!drug) {
+    return { success: false, error: { message: "Obat tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const history = await client.drugChangeRequest.findMany({
+    where: { drugId },
+    include: {
+      requester: { select: { name: true } },
+      approver: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return { success: true, data: history };
+}
+
+export async function getProductChangeHistory(productId: string): Promise<ActionResult<any[]>> {
+  const client = await prisma();
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
+  }
+
+  const role = (session.user as any).role;
+  if (!["OWNER", "KASIR"].includes(role)) {
+    return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
+  }
+
+  const product = await client.product.findUnique({ where: { id: productId } });
+  if (!product) {
+    return { success: false, error: { message: "Produk tidak ditemukan", code: "NOT_FOUND" } };
+  }
+
+  const history = await client.productChangeRequest.findMany({
+    where: { productId },
+    include: {
+      requester: { select: { name: true } },
+      approver: { select: { name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return { success: true, data: history };
+}
