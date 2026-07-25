@@ -1,15 +1,16 @@
 # HALAND PETCARE - PRODUCT REQUIREMENTS DOCUMENT
 
-**Version:** 2.0
-**Date:** 2026-07-23
-**Status:** Production Specification
+**Version:** 3.0
+**Date:** 2026-07-25
+**Status:** Production Specification — Single Source of Truth
 **Architecture:** Next.js Full Stack
+**Revision:** Merged from PRD v2.0 + PRD-FITUR-DASHBOARD v2.0. 4-role system (ADMIN removed). Fraud prevention, appointment scheduling, pet hotel, supplier management, and daily reconciliation integrated.
 
 ---
 
 ## 1. PRODUCT VISION
 
-Haland PetCare is a production-ready veterinary clinic platform that centralizes customer management, pet care, medical records, billing, POS, inventory, and reporting into a single application. The system serves four user roles: Owner, Doctor (Dokter), Cashier (Kasir), and Customer, each with distinct interfaces and permissions. The platform prioritizes simplicity, maintainability, and predictable behavior across all workflows.
+Haland PetCare is a production-ready veterinary clinic platform that centralizes customer management, pet care, medical records, billing, POS, inventory, hotel, supplier, and reporting into a single application. The system serves four user roles: Owner (OWNER), Doctor (DOKTER), Cashier (KASIR), and Customer (CUSTOMER), each with distinct interfaces and permissions. The platform prioritizes simplicity, maintainability, predictable behavior across all workflows, and fraud prevention through separation of duties.
 
 ---
 
@@ -17,9 +18,10 @@ Haland PetCare is a production-ready veterinary clinic platform that centralizes
 
 - Single application, single database, single repository
 - Zero complex configuration setup
-- Clear role and permission separation
+- Clear role and permission separation (4 roles, no overlap)
+- Fraud prevention via approval workflows and audit trails
 - Automated billing and pricing
-- Intuitive customer portal
+- Intuitive customer portal with self-service booking
 - Minimal dependencies, maximum stability
 - Clone-and-run local development
 - One-command deployment to Vercel with Supabase
@@ -40,20 +42,28 @@ Haland PetCare is a production-ready veterinary clinic platform that centralizes
 
 ---
 
-## 4. DESIGN PHILOSOPHY
+## 4. DESIGN PRINCIPLES
 
-- Convention over Configuration
-- Single Source of Truth
-- Server First
-- Type Safe
-- Zero Boilerplate
-- Feature Based Architecture
-- Domain Driven Organization
-- High Cohesion
-- Low Coupling
-- Minimal Runtime Complexity
-- Minimal Environment Variables
-- Maximum Readability
+```
+1. CLEAR SEPARATION OF DUTIES
+   ├── Each role has specific responsibilities, no overlap
+   ├── Data interconnected in a single integrated system
+   ├── No workflow conflicts or duplicate responsibilities
+   └── Complete audit trail for all actions
+
+2. FRAUD PREVENTION & GOVERNANCE
+   ├── OWNER has full control (master data, pricing, approvals)
+   ├── KASIR executes transactions (cannot modify pricing/policies)
+   ├── DOKTER focuses on clinical (no financial access)
+   ├── CUSTOMER self-service (data isolation)
+   └── Approval workflow for critical changes
+
+3. SINGLE SOURCE OF TRUTH
+   ├── Each data entity stored once (no duplication)
+   ├── All changes tracked & timestamped
+   ├── Full audit trail immutable
+   └── Historical data preserved for compliance
+```
 
 ---
 
@@ -66,7 +76,7 @@ Haland PetCare is a production-ready veterinary clinic platform that centralizes
 | Language | TypeScript (Strict) |
 | Database | PostgreSQL 14+ |
 | ORM | Prisma |
-| Authentication | Auth.js (NextAuth.js) |
+| Authentication | Auth.js (NextAuth.js) — JWT strategy |
 | Storage | Supabase Storage |
 | UI Components | shadcn/ui |
 | Styling | Tailwind CSS |
@@ -89,62 +99,182 @@ No additional technologies beyond this list are permitted without explicit justi
 
 - Customer Management (registration, profiles, pet data)
 - Pet Management (CRUD, medical history notes)
+- Appointment Scheduling (doctor availability, customer booking, reminders)
 - Visit Workflow (create, complete, auto-invoice)
 - Medical Records (visit notes, diagnosis, treatment)
-- Service Management (tindakan, pricing)
-- Drug Management (obat, pricing, units)
-- Product Management (retail products, categories, stock)
-- Billing Module (perawatan bertahap: rawat inap, pet hotel)
+- Service Management (tindakan, pricing — OWNER only)
+- Drug Management (obat, pricing, units — OWNER only)
+- Product Management (retail products, categories, stock — OWNER only)
+- Billing Module (perawatan bertahap: rawat inap)
+- Pet Hotel & Boarding (room management, booking, add-on services)
+- Supplier Management (supplier master, purchase orders, goods receipt)
 - POS Module (retail sales)
 - Payment Processing (multiple methods, invoice settlement)
 - Invoice Generation and PDF export
 - Prescription Generation and PDF export
 - Stock Management (tracking, adjustment, reorder alerts)
-- Reporting (daily sales, visits, inventory, revenue, customers, payments)
-- Customer Portal (history, records, invoices, prescriptions, profile)
-- Owner Dashboard (analytics, master data, user management, settings)
-- Role-based access control (Owner, Doctor, Cashier, Admin)
+- Fraud Prevention (price change approval, discount tracking, stock adjustment approval)
+- Daily Reconciliation (end-of-day close, OWNER review)
+- Reporting (daily sales, visits, inventory, revenue, customers, payments, hotel, supplier)
+- Customer Portal (history, records, invoices, prescriptions, hotel bookings, profile)
+- Owner Dashboard (KPIs, approvals, master data, user management, settings)
+- Role-based access control (OWNER, DOKTER, KASIR, CUSTOMER)
 - Audit trail for transactions and master data changes
 - Email notifications (visit completion, invoice, payment confirmation, low stock)
 - In-app notifications (simple read/unread)
-- Auto-numbering for invoices, receipts, prescriptions, visits, billings
+- Auto-numbering for invoices, receipts, prescriptions, visits, billings, appointments, POs
 - Tax calculation (flat or percentage)
-- Discount management (per-transaction)
+- Discount management (per-transaction with approval workflow)
 - Responsive design (mobile-first for customer portal)
 - Dark mode toggle
 
 ### Out of Scope
 
-- Appointment scheduling system
 - SMS/WhatsApp integration (email only)
 - Multi-location/multi-branch support
 - Advanced analytics/BI tools
 - Video consultation
-- Supply chain management (PO to vendor)
 - Insurance claim processing
 - AI-powered diagnostics
 - Real-time inventory sync with multiple warehouses
 - Loyalty program/membership system
 - Advanced medical imaging/DICOM
 - Payment gateway integration (architecture ready for future)
+- Two-Factor Authentication (planned future)
+- Mobile app (iOS/Android)
+- Multi-language support
+- Staff payroll management
 
 ---
 
 ## 7. USER ROLES
 
+### 7.1 Role Definitions (4 ROLES ONLY)
+
 | Role | Access Level | Description |
 |---|---|---|
-| Owner | Full access | Master data CRUD, user management, configuration, all reports, analytics |
-| Doctor (Dokter) | Medical operations | Create/read visits, input diagnosis, prescribe drugs, view invoices. Cannot modify prices or create master data |
-| Cashier (Kasir) | Payment operations | Process payments, create POS orders, view billing. Read-only for visits and medical records |
-| Admin | Operational assist | User management assist, stock opname, report assist. Cannot configure business rules |
-| Customer | Portal access | View own pets, visits, medical records, invoices, prescriptions. Edit own profile |
+| OWNER | Full access | Oversight, approval, master data, settings, all reports, user management |
+| Doctor (DOKTER) | Medical operations | Create/read visits, input diagnosis, prescribe drugs, manage appointments. Cannot modify prices or access financial data |
+| Cashier (KASIR) | Finance & operations | Process payments, create POS orders, manage inventory/hotel/suppliers, daily reconciliation. Cannot modify master data or pricing |
+| Customer (CUSTOMER) | Portal access | Self-service: manage pets, book appointments, view invoices, hotel bookings. Data isolation enforced |
 
 **Minimum Requirements:**
 - At least 1 Owner account per clinic
 - Multiple Doctors allowed
 - Multiple Cashiers allowed
-- Admin is optional
+- No Admin role (removed — permissions distributed to OWNER and KASIR)
+
+### 7.2 Permission Matrix (Source of Truth)
+
+```
+┌──────────────────────────────┬────────┬───────┬──────┬──────────┐
+│ Permission                   │ OWNER  │ KASIR │ DOK  │ CUSTOMER │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ VIEW_DASHBOARD               │   ✅   │  ✅   │  ✅  │    ✅    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ CLINICAL - DOKTER ONLY       │        │       │      │          │
+│ MANAGE_VISITS                │   ✅   │  ❌   │  ✅  │    ❌    │
+│ MANAGE_PRESCRIPTIONS         │   ✅   │  ❌   │  ✅  │    ❌    │
+│ MANAGE_APPOINTMENTS          │   ✅   │  ❌   │  ✅  │    ✅    │
+│ VIEW_MEDICAL_RECORDS         │   ✅   │  ❌   │  ✅  │    ❌    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ FINANCE - KASIR              │        │       │      │          │
+│ MANAGE_BILLING               │   ✅   │  ✅   │  ❌  │    ❌    │
+│ MANAGE_INVOICES              │   ✅   │  ✅   │  ❌  │    ❌    │
+│ MANAGE_PAYMENTS              │   ✅   │  ✅   │  ❌  │    ❌    │
+│ MANAGE_POS                   │   ✅   │  ✅   │  ❌  │    ❌    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ OPERATIONS - KASIR           │        │       │      │          │
+│ MANAGE_CUSTOMERS             │   ✅   │  ✅   │  ❌  │    ❌    │
+│ MANAGE_STOCK                 │   ✅   │  ✅   │  ❌  │    ❌    │
+│ MANAGE_HOTEL                 │   ✅   │  ✅   │  ❌  │    ✅    │
+│ MANAGE_SUPPLIERS             │   ✅   │  ✅   │  ❌  │    ❌    │
+│ SUGGEST_PRICE_CHANGES        │   ✅   │  ✅   │  ❌  │    ❌    │
+│ REQUEST_STOCK_ADJUSTMENT     │   ✅   │  ✅   │  ❌  │    ❌    │
+│ SUBMIT_DAILY_RECONCILIATION  │   ✅   │  ✅   │  ❌  │    ❌    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ MASTER DATA - OWNER ONLY     │        │       │      │          │
+│ MANAGE_SERVICES              │   ✅   │  ❌   │  ❌  │    ❌    │
+│ MANAGE_DRUGS                 │   ✅   │  ❌   │  ❌  │    ❌    │
+│ MANAGE_PRODUCTS              │   ✅   │  ❌   │  ❌  │    ❌    │
+│ MANAGE_CATEGORIES            │   ✅   │  ❌   │  ❌  │    ❌    │
+│ MANAGE_PAYMENT_METHODS       │   ✅   │  ❌   │  ❌  │    ❌    │
+│ VIEW_SERVICES (read-only)    │   ✅   │  ✅   │  ❌  │    ❌    │
+│ VIEW_DRUGS (read-only)       │   ✅   │  ✅   │  ❌  │    ❌    │
+│ VIEW_PRODUCTS (read-only)    │   ✅   │  ✅   │  ❌  │    ❌    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ APPROVAL & FRAUD PREVENTION  │        │       │      │          │
+│ APPROVE_PRICE_CHANGES        │   ✅   │  ❌   │  ❌  │    ❌    │
+│ APPROVE_DISCOUNTS            │   ✅   │  ❌   │  ❌  │    ❌    │
+│ APPROVE_STOCK_ADJUSTMENT     │   ✅   │  ❌   │  ❌  │    ❌    │
+│ APPROVE_SUPPLIERS            │   ✅   │  ❌   │  ❌  │    ❌    │
+│ REVIEW_DAILY_RECONCILIATION  │   ✅   │  ❌   │  ❌  │    ❌    │
+│ APPLY_DISCOUNT (limited)     │   ✅   │  ✅*  │  ❌  │    ❌    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ REPORTING                    │        │       │      │          │
+│ VIEW_REPORTS_ALL             │   ✅   │  ✅   │  🔍  │    ❌    │
+│ VIEW_AUDIT_LOGS              │   ✅   │  ❌   │  ❌  │    ❌    │
+│ VIEW_DISCOUNT_HISTORY        │   ✅   │  ❌   │  ❌  │    ❌    │
+│ VIEW_PRICE_CHANGE_HISTORY    │   ✅   │  ❌   │  ❌  │    ❌    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ SYSTEM ADMIN - OWNER ONLY    │        │       │      │          │
+│ MANAGE_USERS                 │   ✅   │  ❌   │  ❌  │    ❌    │
+│ MANAGE_PERMISSIONS           │   ✅   │  ❌   │  ❌  │    ❌    │
+│ MANAGE_SETTINGS              │   ✅   │  ❌   │  ❌  │    ❌    │
+├──────────────────────────────┼────────┼───────┼──────┼──────────┤
+│ CUSTOMER SELF-SERVICE        │        │       │      │          │
+│ MANAGE_MY_PETS               │   ✅   │  ❌   │  ❌  │    ✅    │
+│ MANAGE_MY_APPOINTMENTS       │   ✅   │  ❌   │  ❌  │    ✅    │
+│ VIEW_MY_INVOICES             │   ✅   │  ❌   │  ❌  │    ✅    │
+└──────────────────────────────┴────────┴───────┴──────┴──────────┘
+
+✅ = Full Access (Create, Read, Update, Delete)
+🔍 = Read Only / View Only (limited reports only)
+❌ = No Access
+✅* = Limited by policy/threshold (e.g., discount < Rp 1M)
+```
+
+### 7.3 Route Access Control
+
+```typescript
+const ROLE_ROUTES: Record<UserRole, string[]> = {
+  OWNER: [],  // Full access to all routes
+
+  DOKTER: [
+    "/dashboard",
+    "/visits",
+    "/customers",        // view-only, for context
+    "/appointments",
+    "/prescriptions",
+    "/medical-records",
+    "/notifications"
+  ],
+
+  KASIR: [
+    "/dashboard",
+    "/invoices",
+    "/payments",
+    "/pos",
+    "/customers",        // full CRUD access
+    "/stock",
+    "/master",           // view-only
+    "/suppliers",
+    "/hotel",
+    "/reconciliation",
+    "/notifications"
+  ],
+
+  CUSTOMER: [
+    "/portal/dashboard",
+    "/portal/pets",
+    "/portal/appointments",
+    "/portal/invoices",
+    "/portal/prescriptions",
+    "/portal/hotel-bookings",
+    "/portal/profile"
+  ]
+};
+```
 
 ---
 
@@ -153,8 +283,8 @@ No additional technologies beyond this list are permitted without explicit justi
 ### 8.1 Authentication and Authorization
 
 #### 8.1.1 Login System
-- Email-based login using Auth.js
-- Password hashing via bcrypt (default)
+- Email-based login using Auth.js (JWT strategy)
+- Password hashing via bcrypt (12 rounds)
 - Password reset via email link (Resend)
 - Session-based authentication via Auth.js
 - Remember-me checkbox (optional)
@@ -162,243 +292,415 @@ No additional technologies beyond this list are permitted without explicit justi
 - Password minimum 8 characters, must include uppercase, lowercase, and number
 - Session timeout: 12 hours of inactivity
 - Customer portal uses separate auth route
+- Role-based redirect: CUSTOMER → `/portal/dashboard`, others → `/dashboard`
 
-#### 8.1.2 Role and Permission System
-
-Four fixed roles seeded at database initialization. Permissions are not changeable via UI.
-
-| Role | Permissions |
-|---|---|
-| Owner | All CRUD for master data, user management, system configuration, full report access, audit log viewing |
-| Doctor | Create/read visits, input diagnosis, prescribe drugs, view invoices, export visit notes as PDF. Cannot edit prices or create master data |
-| Cashier | Read-only visits/medical records, process payments, create POS orders, view billing. Cannot modify master data |
-| Admin | User management assist, stock opname, report assist. Cannot configure business rules |
-| Customer | View own profile, pets, visits, medical records, invoices, prescriptions. Edit own profile and pets |
-
-#### 8.1.3 Authorization Enforcement
+#### 8.1.2 Authorization Enforcement
 - Middleware-based route protection per role
 - Server-side validation in every Server Action
 - Client-side UI adaptation based on role (hide unauthorized elements)
 - Audit log for all authorization failures
+- IP tracking on all actions
 
 ### 8.2 Customer Management
 
 #### 8.2.1 Customer Registration
-- Staff (Doctor or Cashier) creates customer during walk-in
+- Staff (KASIR or DOKTER) creates customer during walk-in
 - Required fields: name, phone (unique), address
-- Optional fields: email (recommended for portal access)
+- Optional fields: email (recommended for portal access), city, postal code
 - System auto-generates user account with temporary password sent via email
 - Customer status defaults to ACTIVE
 - Duplicate check based on exact name + phone combination
 - Customers cannot self-register
 
 #### 8.2.2 Customer Profile
-- View and edit: name, phone, email, address
+- View and edit: name, phone, email, address, city, postal code
 - View all associated pets
 - View visit history
 - View invoices and payment history
+- View payment reliability (on-time vs late payer history)
 
 #### 8.2.3 Pet Management
 - One customer may have multiple pets
-- Pet fields: name, species (select: dog, cat, bird, rabbit, hamster, other), breed, birth date or estimated age, weight (kg), color/marking, medical history notes (owner-provided, not formal medical records)
+- Pet fields: name, species (select: dog, cat, bird, rabbit, hamster, other), breed, birth date or estimated age, weight (kg), color/marking, medical history notes (owner-provided, not formal medical records), image
 - Pets cannot be permanently deleted (soft delete only, status = ARCHIVED)
 - Medical history notes are owner-provided information, not clinical records
+- Staff (OWNER/DOKTER/KASIR) can manage pets for any customer
+- Portal CUSTOMER users can only manage pets linked to their own customer record
 
-### 8.3 Visit Workflow
+### 8.3 Appointment & Scheduling
 
-#### 8.3.1 Visit Creation
-1. Doctor searches and selects customer
-2. Doctor selects pet from customer's pet list
-3. Doctor inputs: visit date/time, chief complaint, physical exam notes (optional), diagnosis, treatment notes
-4. Doctor records vital signs (optional): weight, temperature, heart rate
-5. Doctor selects services from master list (multiple, with fixed prices)
-6. Doctor selects drugs from master list (multiple, with quantity, fixed prices)
+#### 8.3.1 Doctor Availability
+- OWNER/DOKTER manages doctor schedules (day of week, start/end time, slot duration, max slots)
+- Schedule stored in DoctorSchedule model
+- DOKTER can manage own availability
+
+#### 8.3.2 Appointment Booking
+- CUSTOMER books via portal: select pet, doctor (or "any available"), date & time from available slots, add notes
+- DOKTER can also create appointments for walk-ins
+- Appointment status flow: PENDING → CONFIRMED → COMPLETED / CANCELLED / NO_SHOW
+- Appointment number auto-generated: APT-YYYY-MMDD-XXXXX
+- Reminders sent (1 day before, 1 hour before)
+
+#### 8.3.3 Appointment to Visit Flow
+- DOKTER views today's appointment queue
+- Mark appointment as CONFIRMED (customer confirmed attendance)
+- Create VISIT from appointment (pre-populated customer, pet, doctor)
+- On visit completion, appointment marked COMPLETED
+
+### 8.4 Visit Workflow
+
+#### 8.4.1 Visit Creation
+1. DOKTER searches and selects customer (or starts from appointment)
+2. DOKTER selects pet from customer's pet list
+3. DOKTER inputs: visit date/time, chief complaint, physical exam notes (optional), diagnosis, treatment notes
+4. DOKTER records vital signs (optional): weight, temperature, heart rate
+5. DOKTER selects services from master list (multiple, with fixed prices — read-only)
+6. DOKTER selects drugs from master list (multiple, with quantity, fixed prices — read-only)
 7. System calculates subtotal from all selected items
 8. Visit status = DRAFT
 
-#### 8.3.2 Visit Completion
-1. Doctor clicks "Complete Visit"
-2. System auto-generates invoice from visit items
-3. Visit status = COMPLETED
-4. Invoice number generated: VIS-YYYY-MMDD-XXXXX for visit, INV-YYYY-MMDD-XXXXX for invoice
-5. Invoice status = UNPAID
+#### 8.4.2 Visit Completion
+1. DOKTER clicks "Complete Visit"
+2. System auto-generates invoice from visit items (sourceType: VISIT)
+3. System auto-generates prescription from drug items
+4. Visit status = COMPLETED
+5. Invoice number generated: INV-YYYY-MMDD-XXXXX
+6. Prescription number generated: RX-YYYY-MMDD-XXXXX
+7. Invoice status = UNPAID
+8. KASIR notified of new pending invoice
 
-#### 8.3.3 Visit Payment
-1. Cashier receives payment through POS module
+#### 8.4.3 Visit Payment
+1. KASIR receives payment through POS module or invoice payment
 2. Payment amount must be >= invoice total
 3. Full payment: Invoice status = PAID, Visit status = PAID
-4. Partial payment: Invoice status remains UNPAID, payment recorded
+4. Partial payment: Invoice status = PARTIAL, payment recorded
 5. Change calculated automatically for cash payments
 
-#### 8.3.4 Business Rules
+#### 8.4.4 Business Rules
 - Visits cannot be deleted (only editable while DRAFT)
 - Every visit must reference a valid pet
 - Diagnosis and treatment must have at least 1 entry
 - Prices are captured from master data at time of visit creation (immutable for historical records)
-- Doctor cannot modify service/drug prices
-- Doctor cannot create or archive services or drugs
-- Doctor can view pet history and export visit notes as PDF
+- DOKTER cannot modify service/drug prices
+- DOKTER can view pet history and export visit notes as PDF
+- Medical records are immutable (audit trail)
 
-### 8.4 Billing Module (Perawatan Bertahap)
+### 8.5 Billing Module (Perawatan Bertahap)
 
-#### 8.4.1 Workflow
+#### 8.5.1 Workflow
 1. Staff creates billing record for customer and pet (OPEN status)
 2. Billing number generated: BIL-YYYY-MMDD-XXXXX
 3. Staff adds items over time: services, drugs, products
 4. Each item captures fixed price at time of addition
 5. Items can be added while billing status = OPEN
-6. Staff completes billing (OPEN -> COMPLETED)
+6. Staff completes billing (OPEN → COMPLETED)
 7. Invoice auto-generated with final amount
-8. Payment processed (COMPLETED -> PAID/SETTLED)
+8. Payment processed (COMPLETED → PAID/SETTLED)
 
-#### 8.4.2 Billing Items
+#### 8.5.2 Billing Items
 - item_type: SERVICE, DRUG, or PRODUCT
 - Captures: item reference, quantity, unit_price (fixed at addition), subtotal
 - Optional notes per item
 
-#### 8.4.3 Business Rules
-- Billing status flow: OPEN -> COMPLETED -> PAID/SETTLED
-- Items cannot be deleted after billing is COMPLETED (Owner can edit if revision needed)
+#### 8.5.3 Business Rules
+- Billing status flow: OPEN → COMPLETED → PAID/SETTLED
+- Items cannot be deleted after billing is COMPLETED
 - Billing can be monitored in real-time: duration, item count, running total
 - Partial payment supported
 
-### 8.5 POS Module
+### 8.6 POS Module
 
-#### 8.5.1 Workflow
-1. Cashier starts new transaction (customer selection optional)
-2. Cashier searches or scans product
-3. Cashier adds product with quantity
+#### 8.6.1 Workflow
+1. KASIR starts new transaction (customer selection optional)
+2. KASIR searches or scans product
+3. KASIR adds product with quantity
 4. System calculates: subtotal, tax, total
-5. Cashier optionally applies discount (flat or percentage)
-6. Cashier selects payment method and inputs amount
+5. KASIR optionally applies discount (flat or percentage)
+   - If discount < policy limit → auto-approve
+   - If discount > policy limit → mark PENDING, notify OWNER for approval
+6. KASIR selects payment method and inputs amount
 7. System calculates change for cash payments
 8. Receipt generated: RCP-YYYY-MMDD-XXXXX
-9. Transaction completes
+9. Transaction completes, stock deducted
 
-#### 8.5.2 Business Rules
+#### 8.6.2 Business Rules
 - POS orders cannot be edited after completion
 - Stock must be available (system checks before submit)
 - Payment must be >= total (no arrears for POS)
 - Change calculated automatically for cash payment
 - Customer selection is optional
+- All POS transactions logged (audit trail)
+- Cannot delete (only void with reason)
 
-### 8.6 Payment and Invoicing
+### 8.7 Payment and Invoicing
 
-#### 8.6.1 Payment Processing
+#### 8.7.1 Payment Processing
 - Payments can originate from: Visit, Billing, or POS Order
 - Payment record captures: payment number, source reference, method, amount, status, notes, receiver
 - Payment flow: validate amount >= invoice total, record payment, update invoice status, calculate change
 - Partial payments are recorded individually
-- Payments cannot be deleted (Owner can revert for extraordinary cases)
+- Payments cannot be deleted (OWNER can revert for extraordinary cases)
 
-#### 8.6.2 Invoice Generation
+#### 8.7.2 Invoice Generation
 - Invoices auto-generated when Visit or Billing is completed
 - Invoice captures: customer, pet, source reference, dates, subtotal, tax, discount, total, paid amount, status
 - Invoice items capture: name, quantity, unit_price, subtotal, category
 - Invoice is immutable after PAID status
 - Invoices can be downloaded as PDF and emailed to customers
 
-#### 8.6.3 Prescription Generation
+#### 8.7.3 Prescription Generation
 - Prescriptions auto-generated from visit drug items
 - Prescription number: RX-YYYY-MMDD-XXXXX
 - Captures: visit reference, customer, pet, date, status
 - Prescription items: drug reference, quantity, dosage, duration, instructions
 - Prescriptions can be exported as PDF
 
-### 8.7 Master Data Management
+### 8.8 Master Data Management (OWNER Only)
 
-#### 8.7.1 Service Management
-- Owner can create, edit, archive services
-- Fields: name (unique), description, category, price, status
-- Categories: Consultation, Vaccination, Grooming, Surgery, Laboratory, X-Ray, Hospitalization, Other
+#### 8.8.1 Service Management
+- OWNER can create, edit, archive services
+- Fields: name (unique), description, category, price, cost (for margin), status
+- Categories: Konsultasi, Vaksinasi, Grooming, Operasi, Laboratorium, X-Ray, Rawat Inap, Lainnya
 - Archived services hidden from selection dropdowns but remain in history
 - Price changes apply only to new visits
+- Change history tracked (who, when, old→new)
 
-#### 8.7.2 Drug Management
-- Owner can create, edit, archive drugs
-- Fields: name (unique), description, unit (tablets, capsules, bottle, vial, ampule, gram, ml, drops, other), price_per_unit, status
+#### 8.8.2 Drug Management
+- OWNER can create, edit, archive drugs
+- Fields: name (unique), description, unit (Tablet, Kapsula, Botol, Vial, Ampul, Gram, ML, Tetes, Lainnya), price_per_unit, cost_per_unit, minimum_stock, supplier_id, status
 - Unit cannot be changed after creation
 - Archived drugs hidden from selection but remain in history
+- Change history tracked
 
-#### 8.7.3 Product Management
-- Owner can create, edit, archive products
-- Fields: name (unique), category reference, price, description, image_url, barcode (optional), current_stock, reorder_point, status
-- Owner can manage product categories (CRUD with soft delete)
+#### 8.8.3 Product Management
+- OWNER can create, edit, archive products
+- Fields: name (unique), category reference, price, cost, minimum_margin, description, image_url, barcode (optional), current_stock, reorder_point, status
+- OWNER can manage product categories (CRUD with soft delete)
+- Categories include: name, description, default_margin
 - Archived products hidden from POS selection but remain in order history
+- Change history tracked
 
-#### 8.7.4 Stock Management
+#### 8.8.4 Stock Management
 - Current stock tracked per product
-- Stock decreases on POS order submission
-- Stock adjustable via manual stock opname (Owner/Admin only)
+- Stock decreases on POS order submission and billing item
+- Stock adjustable via manual stock opname (OWNER/KASIR with approval)
 - Low stock warning when current_stock < reorder_point
 - Stock never goes negative (system rejects insufficient stock)
 - Stock adjustment history tracked with reason, reference, and user
+- Adjustment reasons: INITIAL, POS_SOLD, BILLING_SOLD, DAMAGED, RETURN, OPNAME_ADJUST, OTHER
+- Adjustment > threshold requires OWNER approval
 
-#### 8.7.5 Tax Configuration
-- Owner configures: type (flat or percentage), value, enabled/disabled
+#### 8.8.5 Tax Configuration
+- OWNER configures: type (flat or percentage), value, enabled/disabled
 - Tax applied to all transactions
 - Tax amount displayed separately on invoices
 
-#### 8.7.6 Discount Management
-- Discount applied per-transaction by Cashier
+#### 8.8.6 Discount Management
+- Discount applied per-transaction by KASIR
 - Type: flat amount or percentage
-- Owner can set maximum discount percentage limit
+- OWNER can set maximum discount percentage limit (policy)
+- Discount < policy limit → auto-approve
+- Discount > policy limit → requires OWNER approval
+- All discounts logged to DiscountLog (immutable)
 
-#### 8.7.7 Payment Method Configuration
-- Owner configures available payment methods
+#### 8.8.7 Payment Method Configuration
+- OWNER configures available payment methods
 - Default: Cash (always active)
-- Optional: Bank Transfer, Card, e-Wallet, Custom
+- Optional: Bank Transfer, Card, e-Wallet, Check, Installment, Custom
 - Per method: name, status (active/inactive), instructions
 - At least 1 payment method must be active (Cash)
 
-#### 8.7.8 Company Configuration
-- Fields: clinic name, logo, address, phone, email, operating hours, tax ID, invoice footer notes, receipt footer notes
-- Numbering format: invoice prefix, receipt prefix, visit prefix, billing prefix
+#### 8.8.8 Company Configuration
+- Fields: clinic name, logo, address, phone, email, operating hours, tax ID, NPWP, bank details, invoice footer notes, receipt footer notes
+- Numbering format: invoice prefix, receipt prefix, visit prefix, billing prefix, appointment prefix, PO prefix, prescription prefix
+- Hotel rates: daily room rates by type, package pricing, add-on service pricing
+- Business hours, appointment slot duration, cancellation policy, late payment policy
+- Fraud prevention policies: discount limit, stock adjustment threshold, PO approval threshold, reconciliation discrepancy tolerance
 
-### 8.8 Owner Dashboard
+### 8.9 Pet Hotel & Boarding
 
-#### 8.8.1 Dashboard Overview
-- Quick stats: today's visits, today's revenue, pending payments, low stock products
-- Charts: visits trend (7 days), revenue trend (30 days)
-- Pending actions: unpaid invoices, incomplete visits, low stock alerts
-- Recent transactions: latest visits, latest payments
+#### 8.9.1 Room Management
+- Room list: name, type, capacity, daily rate, amenities, status (AVAILABLE/OCCUPIED/MAINTENANCE)
+- Occupancy tracking (current, upcoming)
+- Maintenance schedule (mark room as maintenance)
+- Rate management (view pricing set by OWNER)
 
-#### 8.8.2 User Management
-- Owner can create, edit, disable/enable users
+#### 8.9.2 Booking Workflow
+- Calendar view (room occupancy)
+- Create booking: customer, pet(s), room, check-in/check-out dates
+- Booking status flow: CONFIRMED → CHECKED_IN → CHECKED_OUT / CANCELLED
+- Booking number auto-generated: HTL-YYYY-MMDD-XXXXX
+- Daily rate applied automatically
+- Add services: grooming, extra food, medication, playtime
+- CUSTOMER can book via portal; KASIR can book at front desk
+
+#### 8.9.3 Hotel Charges
+- Auto-calculate: length of stay × daily rate + add-on services
+- Generate hotel invoice (separate line item in customer invoice)
+- Pet care notes (daily observations by KASIR/hotel staff)
+
+#### 8.9.4 Business Rules
+- Room cannot be double-booked for overlapping dates
+- Check-in/check-out updates room occupancy
+- Cancellation policy enforced
+- Hotel revenue tracked in daily reconciliation
+
+### 8.10 Supplier Management
+
+#### 8.10.1 Supplier Master
+- Supplier list (CRUD)
+- Fields: name, phone, email, address, city, postal code, contact person, payment terms, specialization, status (ACTIVE/INACTIVE/BLACKLIST)
+- New suppliers require OWNER verification and approval
+- KASIR can suggest new suppliers; OWNER approves
+
+#### 8.10.2 Purchase Orders
+- KASIR creates PO: select supplier, items, quantities
+- PO number auto-generated: PO-YYYY-MMDD-XXXXX
+- PO > budget threshold → OWNER approval needed
+- PO status flow: PENDING → PARTIAL_RECEIVED → RECEIVED / CANCELLED
+- Track PO history
+
+#### 8.10.3 Goods Receiving
+- Record goods received (from PO)
+- Mark items received (full or partial)
+- Update stock automatically
+- Quality check (accept/reject items)
+- Generate GR note
+
+#### 8.10.4 Supplier Performance
+- On-time delivery rate (%)
+- Quality score (defect/return rate)
+- Price competitiveness
+- Lead time average
+- Relationship value (total spend)
+
+### 8.11 Daily Reconciliation
+
+#### 8.11.1 Close Process
+- KASIR gathers all day's transactions: POS sales, invoice payments, discounts applied, tax collected
+- KASIR counts physical cash
+- KASIR verifies card/transfer payments (match to bank)
+
+#### 8.11.2 Reconciliation Form
+- Expected POS: [auto-calculated from transactions]
+- Actual POS: [KASIR input from receipt counter]
+- Expected Cash: [auto from payment methods]
+- Actual Cash: [KASIR count]
+- Expected Card: [auto from CC processor]
+- Actual Card: [KASIR verify]
+- Variance calculation (auto)
+- Notes (for discrepancies)
+- Submit for OWNER review
+
+#### 8.11.3 Workflow
+- KASIR submit → status PENDING
+- OWNER review → can APPROVE or REQUEST REVISION
+- If APPROVED → lock the day's transactions (immutable)
+- If REQUEST REVISION → go back to KASIR
+- Historical record kept for audit
+- Discrepancy handling: minor (documented, tracked), major (investigated, escalated)
+
+### 8.12 Fraud Prevention & Controls
+
+#### 8.12.1 Price Change Approval
+- KASIR views current prices (read-only)
+- KASIR submits price change request with justification
+- OWNER reviews: APPROVE / REQUEST REVISION / REJECT
+- All decisions timestamped & tracked
+- Impact analysis (how many invoices affected)
+
+#### 8.12.2 Discount Tracking & Approval
+- Small discounts auto-approved (within policy)
+- Large discounts require OWNER approval
+- All discounts logged (who, what, why, when) — immutable
+- Pattern analysis (detect suspicious behavior by KASIR or per customer)
+
+#### 8.12.3 Stock Adjustment Approval
+- KASIR reports damaged/waste, physical count discrepancies
+- Adjustment > threshold requires OWNER approval
+- Track variance patterns (detect theft)
+
+#### 8.12.4 Supplier Verification
+- New supplier proposals from KASIR require OWNER approval
+- Verify credentials, payment terms
+
+#### 8.12.5 Anomaly Detection
+- Price changes outside normal range
+- Discounts unusually high
+- Revenue variance from forecast
+- Recurring cash discrepancies
+- Alert system for suspicious patterns
+
+### 8.13 Owner Dashboard
+
+#### 8.13.1 Dashboard Overview
+- KPI cards: monthly revenue, customer metrics, operations stats
+- Critical alerts: pending approvals (price changes, discounts, stock adjustments, suppliers, reconciliation)
+- Revenue trends (30 days chart)
+- Financial snapshot: receivables, payables, cash balance, inventory value
+- Approval workflow queue (quick action buttons)
+- Recent transactions
+
+#### 8.13.2 Approval Workflow Queue
+- Price change requests: view current vs proposed, justification, approve/reject
+- Discount requests: view amount, percentage, customer, reason
+- Stock adjustment requests: view quantity, reason, notes
+- Supplier proposals: view credentials, payment terms
+- Reconciliation review: check discrepancies, approve/request revision
+
+#### 8.13.3 User Management
+- OWNER can create, edit, disable/enable users
 - Fields: name, email, phone, role, status
-- Owner can reset user passwords
-- Owner can view user activity log (audit trail)
+- OWNER can reset user passwords
+- OWNER can view user activity log (audit trail)
+- Account lockout/unlock
 
-#### 8.8.3 Reports
-- Daily Report: total visits, total revenue, breakdown by service, top selling product
-- Revenue Report: revenue by payment method, by service, by product, growth comparison
-- Inventory Report: product list with stock levels, low stock alerts, stock movement
-- Customer Report: visit frequency, last visit, total spend, top customers
-- Payment Report: unpaid invoices (aging), payment by method, reconciliation
+### 8.14 Customer Portal
 
-### 8.9 Customer Portal
-
-#### 8.9.1 Portal Access
+#### 8.14.1 Portal Access
 - Separate route group (/portal/*)
 - Customer logs in with email and password
 - Mobile-responsive design (primary access device)
 - Session managed by Auth.js
 
-#### 8.9.2 Portal Features
-- View own pets with details and visit history
-- View all visits with filtering (by pet, date range, status)
-- View medical records per visit (complaint, diagnosis, treatment, drugs)
-- View prescriptions with drug details and instructions
-- View invoices and payment history
-- Download invoice and prescription PDFs
-- Edit profile (name, phone, email, address)
-- Add/edit pets (name, species, breed, birth date, weight, color, medical notes)
-- Change password
-- View in-app notifications
+#### 8.14.2 Portal Features
+- Dashboard: personalized greeting, quick stats, upcoming appointments, pending invoices
+- My Pets: CRUD (name, species, breed, birth date, weight, color, medical notes, photo)
+- My Visits: read-only history with filtering (by pet, date range)
+- Medical Records: view per visit (complaint, diagnosis, treatment, drugs, vital signs)
+- Appointments: view available slots, book appointment, manage (reschedule/cancel)
+- Prescriptions: view details, download/print PDF
+- Invoices & Payments: view list, pay full or partial, download PDF
+- Hotel Bookings: view available rooms, create/manage bookings
+- Profile: edit info, change password, notification preferences
 
-### 8.10 Notifications
+#### 8.14.3 Customer Permissions
+```
+✅ CAN:
+- View own pets & medical history
+- Book appointments
+- View invoices & pay
+- View prescriptions
+- Update own profile & password
+- Book hotel rooms
+- Cancel appointments/bookings (with policy)
+- Download reports (medical, invoices)
 
-#### 8.10.1 Email Notifications
+❌ CANNOT:
+- See other customers' data
+- Access clinical staff dashboard
+- Edit master data
+- View financial reports
+- Approve anything
+- Access system settings
+- See pricing details (only final invoice)
+- Change doctor assignments
+- Create users
+```
+
+### 8.15 Notifications
+
+#### 8.15.1 Email Notifications
 | Event | Recipient | Content |
 |---|---|---|
 | Customer registered | Owner | New customer registered |
@@ -407,10 +709,11 @@ Four fixed roles seeded at database initialization. Permissions are not changeab
 | Payment received | Customer | Payment confirmed, receipt |
 | Low stock | Owner | Product below reorder point |
 | Daily summary | Owner | Daily report summary |
+| Appointment reminder | Customer | 1 day before, 1 hour before |
 
 Emails sent via Resend. HTML templates with clinic branding.
 
-#### 8.10.2 In-App Notifications
+#### 8.15.2 In-App Notifications
 - Notification bell in top navigation
 - Unread count badge
 - Click to view notification list
@@ -425,16 +728,21 @@ Emails sent via Resend. HTML templates with clinic branding.
 
 | Entity | Description |
 |---|---|
-| User | System user (Owner, Doctor, Cashier, Admin) |
+| User | System user (OWNER, DOKTER, KASIR, CUSTOMER) |
+| Role | Role definition (seeded, 4 roles) |
+| RolePermission | Role-permission mapping (seeded) |
+| Permission | Individual permission definition |
 | Customer | Clinic client with pet ownership |
 | Pet | Animal belonging to a customer |
-| Service | Medical procedure or treatment (master data) |
-| Drug | Medication (master data) |
-| Product | Retail item (master data) |
+| Appointment | Appointment scheduling record |
+| DoctorSchedule | Doctor availability slots |
+| Service | Medical procedure or treatment (master data — OWNER only) |
+| Drug | Medication (master data — OWNER only) |
+| Product | Retail item (master data — OWNER only) |
 | ProductCategory | Product classification (master data) |
 | Visit | Single clinic visit with medical notes |
 | VisitItem | Service or drug line item in a visit |
-| Billing | Extended care record (hospitalization, pet hotel) |
+| Billing | Extended care record (hospitalization) |
 | BillingItem | Line item in a billing record |
 | Invoice | Financial document generated from visit or billing |
 | InvoiceItem | Line item in an invoice |
@@ -443,12 +751,23 @@ Emails sent via Resend. HTML templates with clinic branding.
 | PosOrder | Retail point-of-sale transaction |
 | PosOrderItem | Product line item in a POS order |
 | Payment | Payment record against any payable source |
+| ServiceChangeRequest | Price change approval for services |
+| DrugChangeRequest | Price change approval for drugs |
+| ProductChangeRequest | Price change approval for products |
+| DiscountLog | Log of all discounts applied |
 | StockAdjustment | Manual stock change record |
+| StockAdjustmentApproval | Approval for stock adjustments |
+| DailyReconciliation | Daily close reconciliation record |
+| HotelBooking | Hotel room booking |
+| HotelBookingService | Add-on services for hotel stay |
+| HotelRoom | Hotel room definition |
+| Supplier | Supplier master data |
+| PurchaseOrder | Purchase order to supplier |
+| PurchaseOrderItem | Item in a purchase order |
+| GoodsReceipt | Goods received note |
 | AuditLog | System audit trail entry |
 | Notification | In-app notification |
 | Setting | System configuration key-value store |
-| Role | User role definition (seeded) |
-| RolePermission | Role-permission mapping (seeded) |
 
 ### 9.2 Entity Relationships
 
@@ -459,6 +778,8 @@ User (1) ──→ (N) StockAdjustment [created_by]
 User (1) ──→ (N) Payment [received_by]
 User (1) ──→ (N) AuditLog [user_id]
 User (1) ──→ (N) Notification [user_id]
+User (1) ──→ (N) Appointment [doctor_id]
+User (1) ──→ (N) DoctorSchedule [doctor_id]
 User (N) ──→ (1) Role [role_id]
 
 Customer (1) ──→ (N) Pet [customer_id]
@@ -466,6 +787,8 @@ Customer (1) ──→ (N) Visit [customer_id]
 Customer (1) ──→ (N) Billing [customer_id]
 Customer (1) ──→ (N) Invoice [customer_id]
 Customer (1) ──→ (N) Prescription [customer_id]
+Customer (1) ──→ (N) Appointment [customer_id]
+Customer (1) ──→ (N) HotelBooking [customer_id]
 Customer (1) ──→ (1) User [user_id] (optional, for portal access)
 
 Pet (N) ──→ (1) Customer [customer_id]
@@ -473,6 +796,8 @@ Pet (1) ──→ (N) Visit [pet_id]
 Pet (1) ──→ (N) Billing [pet_id]
 Pet (1) ──→ (N) Invoice [pet_id]
 Pet (1) ──→ (N) Prescription [pet_id]
+Pet (1) ──→ (N) Appointment [pet_id]
+Pet (1) ──→ (N) HotelBooking [pet_id]
 
 Service (1) ──→ (N) VisitItem [service_id]
 Service (1) ──→ (N) BillingItem [service_id]
@@ -513,6 +838,20 @@ PosOrderItem (N) ──→ (1) PosOrder [pos_order_id]
 PosOrderItem (N) ──→ (1) Product [product_id]
 
 Payment (N) ──→ (1) User [received_by]
+
+HotelBooking (1) ──→ (N) HotelBookingService [booking_id]
+HotelBooking (N) ──→ (1) HotelRoom [room_id]
+HotelRoom (1) ──→ (N) HotelBooking [room_id]
+
+Supplier (1) ──→ (N) PurchaseOrder [supplier_id]
+PurchaseOrder (1) ──→ (N) PurchaseOrderItem [po_id]
+PurchaseOrder (1) ──→ (1) GoodsReceipt [po_id]
+
+ServiceChangeRequest (N) ──→ (1) Service [service_id]
+DrugChangeRequest (N) ──→ (1) Drug [drug_id]
+ProductChangeRequest (N) ──→ (1) Product [product_id]
+DiscountLog (N) ──→ (1) Invoice [invoice_id]
+StockAdjustmentApproval (N) ──→ (1) StockAdjustment [stockAdjustmentId]
 ```
 
 ### 9.3 Cascade Behaviors
@@ -533,6 +872,8 @@ Payment (N) ──→ (1) User [received_by]
 | Prescription -> PrescriptionItems | CASCADE | Propagate |
 | PosOrder -> PosOrderItems | CASCADE | Propagate |
 | ProductCategory -> Products | RESTRICT (cannot delete category with products) | Propagate |
+| HotelRoom -> HotelBookings | RESTRICT (cannot delete room with bookings) | Propagate |
+| Supplier -> PurchaseOrders | RESTRICT (cannot delete supplier with POs) | Propagate |
 
 ---
 
@@ -541,263 +882,403 @@ Payment (N) ──→ (1) User [received_by]
 ### 10.1 Database Selection
 PostgreSQL 14+ via Supabase. Single database instance. No sharding. Vertical scaling only.
 
-### 10.2 Prisma Schema Design
+### 10.2 Prisma Schema — Key Models
 
 #### User
 ```
-Purpose: System users for all staff roles and customers with portal access
-Relationships: belongs to Role, has many Visits (created_by), Billings (created_by), StockAdjustments (created_by), Payments (received_by), AuditLogs, Notifications
+Purpose: System users for all roles
+Fields: name, email, phone, password, roleId, status, failedLoginAttempts, lockedUntil
 Indexes: email (unique), role_id, status, phone
-Constraints: email unique, phone optional unique
-Lifecycle: Created by Owner, soft-deletable (status = INACTIVE)
-Ownership: Owner manages all users
-```
-
-#### Role
-```
-Purpose: Fixed role definitions seeded at initialization
-Relationships: has many Users, has many RolePermissions
-Indexes: name (unique)
-Constraints: name unique, seeded data only
-Lifecycle: Created during seed, not editable via UI
-Ownership: System-managed
-```
-
-#### RolePermission
-```
-Purpose: Maps permissions to roles (many-to-many)
-Relationships: belongs to Role, belongs to Permission
-Indexes: role_id + permission_id (compound unique)
-Constraints: role_id + permission_id unique
-Lifecycle: Seeded at initialization, not editable via UI
-Ownership: System-managed
-```
-
-#### Permission
-```
-Purpose: Individual permission definitions
-Relationships: has many RolePermissions
-Indexes: name (unique)
-Constraints: name unique, seeded data only
-Lifecycle: Created during seed, not editable via UI
-Ownership: System-managed
+Lifecycle: Created by OWNER, soft-deletable (status = INACTIVE)
 ```
 
 #### Customer
 ```
-Purpose: Clinic clients who own pets and receive services
-Relationships: has one User (optional), has many Pets, Visits, Billings, Invoices, Prescriptions
+Purpose: Clinic clients
+Fields: name, phone, email, address, city, postalCode, userId, status
 Indexes: phone (unique), email, status, name (trigram for search)
-Constraints: phone unique, user_id optional unique
 Lifecycle: Created by staff, soft-deletable (status = INACTIVE)
-Ownership: All staff can read, Owner/Doctor/Cashier can create/edit
 ```
 
 #### Pet
 ```
 Purpose: Animals belonging to customers
-Relationships: belongs to Customer, has many Visits, Billings, Invoices, Prescriptions
+Fields: customerId, name, species, breed, birthDate, weightKg, colorMarking, medicalHistoryNotes, image, status
 Indexes: customer_id, species, status, name
-Constraints: customer_id required
 Lifecycle: Created by staff or customer, soft-deletable (status = ARCHIVED)
-Ownership: Linked customer owns the pet
 ```
 
-#### Service
+#### Appointment
 ```
-Purpose: Medical procedures and treatments with fixed pricing (master data)
-Relationships: has many VisitItems, BillingItems
-Indexes: name (unique), category, status, price
-Constraints: name unique, price >= 0
-Lifecycle: Created by Owner, archivable (status = ARCHIVED)
-Ownership: Owner manages fully, Doctor can select for visits
+Purpose: Appointment scheduling
+Fields: appointmentNumber, customerId, petId, doctorId, appointmentDate, time, type, status, notes
+Indexes: appointmentNumber (unique), doctorId, customerId, appointmentDate, status
+Lifecycle: PENDING → CONFIRMED → COMPLETED / CANCELLED / NO_SHOW
 ```
 
-#### Drug
+#### DoctorSchedule
 ```
-Purpose: Medications with fixed per-unit pricing (master data)
-Relationships: has many VisitItems, BillingItems, PrescriptionItems
-Indexes: name (unique), status, price_per_unit
-Constraints: name unique, unit immutable after creation
-Lifecycle: Created by Owner, archivable (status = ARCHIVED)
-Ownership: Owner manages fully, Doctor can select for visits
-```
-
-#### Product
-```
-Purpose: Retail items for POS sales (master data)
-Relationships: belongs to ProductCategory, has many PosOrderItems, BillingItems, StockAdjustments
-Indexes: name (unique), category_id, status, barcode, current_stock
-Constraints: name unique, category_id required, current_stock >= 0
-Lifecycle: Created by Owner, archivable (status = ARCHIVED)
-Ownership: Owner manages fully, Cashier can sell via POS
-```
-
-#### ProductCategory
-```
-Purpose: Classification for retail products
-Relationships: has many Products
-Indexes: name (unique), status
-Constraints: name unique, cannot delete with active products
-Lifecycle: Created by Owner, soft-deletable (status = ARCHIVED)
-Ownership: Owner manages fully
+Purpose: Doctor availability
+Fields: doctorId, dayOfWeek, startTime, endTime, slotDuration, maxSlots, status
+Indexes: doctorId, dayOfWeek
+Lifecycle: Created by OWNER/DOKTER
 ```
 
 #### Visit
 ```
-Purpose: Single clinic visit with medical notes and treatment items
-Relationships: belongs to Customer, Pet, User (created_by), has many VisitItems, has one Invoice, has one Prescription
-Indexes: customer_id, pet_id, visit_date, status, visit_number (unique), created_by
-Constraints: visit_number unique, status valid enum
-Lifecycle: DRAFT -> COMPLETED -> PAID. Created by Doctor, editable only in DRAFT
-Ownership: Created by Doctor, viewable by all staff
+Purpose: Single clinic visit
+Fields: visitNumber, customerId, petId, doctorId, visitDate, chiefComplaint, physicalExamNotes, diagnosis, treatmentNotes, weightKg, temperature, heartRate, status, createdBy
+Indexes: visitNumber (unique), customer_id, pet_id, visit_date, status, created_by
+Lifecycle: DRAFT → COMPLETED → PAID. Created by DOKTER, editable only in DRAFT
 ```
 
 #### VisitItem
 ```
-Purpose: Line items (services or drugs) attached to a visit
-Relationships: belongs to Visit, references Service OR Drug
-Indexes: visit_id, item_type, service_id, drug_id
-Constraints: visit_id required, exactly one of service_id or drug_id must be set, quantity >= 1, unit_price >= 0
-Lifecycle: Created with visit, deleted with visit (CASCADE)
-Ownership: Belongs to parent visit
+Purpose: Line items (services or drugs)
+Fields: visitId, itemType (SERVICE/DRUG), serviceId, drugId, quantity, unitPrice, subtotal, dosage, durationDays, instructions
+Constraints: exactly one of service_id or drug_id must be set, quantity >= 1
+```
+
+#### Service
+```
+Purpose: Medical procedures (OWNER only)
+Fields: name, description, category, price, cost, status, changedBy, changedAt, version
+Constraints: name unique, price >= 0
+```
+
+#### Drug
+```
+Purpose: Medications (OWNER only)
+Fields: name, description, unit, pricePerUnit, costPerUnit, minimumStock, supplierId, status, changedBy, changedAt, version
+Constraints: name unique, unit immutable after creation
+```
+
+#### Product
+```
+Purpose: Retail items (OWNER only)
+Fields: name, categoryId, price, cost, minimumMargin, description, image, barcode, currentStock, reorderPoint, status, changedBy, changedAt, version
+Constraints: name unique, category_id required, current_stock >= 0
 ```
 
 #### Billing
 ```
-Purpose: Extended care record for hospitalization or pet hotel
-Relationships: belongs to Customer, Pet, User (created_by), has many BillingItems, has one Invoice
-Indexes: customer_id, pet_id, status, billing_number (unique), created_by
-Constraints: billing_number unique, status valid enum
-Lifecycle: OPEN -> COMPLETED -> PAID/SETTLED
-Ownership: Created by Doctor/Cashier, managed by Owner
-```
-
-#### BillingItem
-```
-Purpose: Line items (services, drugs, or products) attached to a billing record
-Relationships: belongs to Billing, references Service OR Drug OR Product
-Indexes: billing_id, item_type
-Constraints: billing_id required, exactly one of service_id, drug_id, or product_id must be set
-Lifecycle: Added while billing OPEN, immutable after COMPLETED
-Ownership: Belongs to parent billing
+Purpose: Extended care record
+Fields: billingNumber, customerId, petId, billingStartDate, billingEndDate, status (OPEN/COMPLETED/PAID/SETTLED), notes, createdBy
+Constraints: billing_number unique
 ```
 
 #### Invoice
 ```
-Purpose: Financial document generated from visit or billing completion
-Relationships: belongs to Customer, optional Pet, has many InvoiceItems, has many Payments
-Indexes: customer_id, invoice_number (unique), status, invoice_date, source_type + source_id
-Constraints: invoice_number unique, source_type valid enum, status valid enum
-Lifecycle: UNPAID -> PARTIAL -> PAID. Immutable after PAID.
-Ownership: Auto-generated, managed by Cashier for payment processing
-```
-
-#### InvoiceItem
-```
-Purpose: Line items on an invoice (snapshot of services, drugs, products at time of generation)
-Relationships: belongs to Invoice
-Indexes: invoice_id
-Constraints: invoice_id required, quantity >= 1, unit_price >= 0
-Lifecycle: Created with invoice, immutable
-Ownership: Belongs to parent invoice
+Purpose: Financial document
+Fields: invoiceNumber, customerId, petId, sourceType (VISIT/BILLING/POS), sourceId, invoiceDate, dueDate, subtotal, taxAmount, discountAmount, total, paidAmount, status (UNPAID/PARTIAL/PAID), createdBy
+Constraints: invoice_number unique
 ```
 
 #### Prescription
 ```
-Purpose: Drug prescription generated from visit
-Relationships: belongs to Visit, Customer, Pet, has many PrescriptionItems
-Indexes: visit_id, customer_id, prescription_number (unique), prescription_date
+Purpose: Drug prescription
+Fields: prescriptionNumber, visitId, customerId, petId, prescriptionDate, status (ACTIVE/COMPLETED/CANCELLED)
 Constraints: prescription_number unique
-Lifecycle: ACTIVE -> COMPLETED/CANCELLED
-Ownership: Auto-generated from visit
-```
-
-#### PrescriptionItem
-```
-Purpose: Individual drug entries in a prescription
-Relationships: belongs to Prescription, references Drug
-Indexes: prescription_id, drug_id
-Constraints: prescription_id required, drug_id required, quantity >= 1
-Lifecycle: Created with prescription, deleted with prescription (CASCADE)
-Ownership: Belongs to parent prescription
 ```
 
 #### PosOrder
 ```
-Purpose: Retail point-of-sale transaction
-Relationships: optional Customer, has many PosOrderItems
-Indexes: order_number (unique), customer_id, created_at, status
-Constraints: order_number unique, total >= 0
-Lifecycle: COMPLETED (created and completed atomically)
-Ownership: Created by Cashier
-```
-
-#### PosOrderItem
-```
-Purpose: Product line items in a POS order
-Relationships: belongs to PosOrder, references Product
-Indexes: pos_order_id, product_id
-Constraints: pos_order_id required, product_id required, quantity >= 1
-Lifecycle: Created with order, immutable after completion
-Ownership: Belongs to parent order
+Purpose: POS transaction
+Fields: orderNumber, customerId, subtotal, taxAmount, discountAmount, total, paymentMethod, paymentAmount, changeAmount, status, createdBy
+Constraints: order_number unique
 ```
 
 #### Payment
 ```
-Purpose: Payment records against any payable source
-Relationships: belongs to User (received_by)
-Indexes: payment_number (unique), payable_type + payable_id, status, created_at
-Constraints: payment_number unique, amount > 0, payable_type valid enum
-Lifecycle: PENDING -> PAID/FAILED. Cannot be deleted.
-Ownership: Created by Cashier, irreversibly recorded
+Purpose: Payment records
+Fields: paymentNumber, payableType, payableId, paymentMethod, amount, status (PENDING/PAID/FAILED), notes, receivedBy
+Constraints: payment_number unique, amount > 0
+```
+
+#### ServiceChangeRequest / DrugChangeRequest / ProductChangeRequest
+```
+Purpose: Price change approval workflow
+Fields: itemId, requestedBy, oldPrice, newPrice, reason, status (PENDING/APPROVED/REJECTED), approvedBy, requestedAt, approvedAt
+```
+
+#### DiscountLog
+```
+Purpose: Immutable discount audit trail
+Fields: invoiceId, appliedBy, discountAmount, discountPercent, reason, requiresApproval, approvalStatus, approvedBy, appliedAt, approvedAt
 ```
 
 #### StockAdjustment
 ```
-Purpose: Manual stock change records for audit trail
-Relationships: belongs to Product, belongs to User (created_by)
-Indexes: product_id, created_at, reason
-Constraints: product_id required, quantity != 0
-Lifecycle: Created once, immutable
-Ownership: Created by Owner/Admin
+Purpose: Manual stock change records
+Fields: productId, quantity, reason (INITIAL/POS_SOLD/BILLING_SOLD/DAMAGED/RETURN/OPNAME_ADJUST/OTHER), referenceId, createdBy, notes, approvalStatus, approvedAt
+```
+
+#### StockAdjustmentApproval
+```
+Purpose: Stock adjustment approval workflow
+Fields: stockAdjustmentId, requestedBy, quantity, reason, status, approvedBy, requestedAt, approvedAt
+```
+
+#### DailyReconciliation
+```
+Purpose: Daily close reconciliation
+Fields: date, kasirId, totalPOS, totalInvoice, totalPayments, expectedCash, actualCash, cashDifference, expectedCard, actualCard, cardDifference, notes, status (PENDING/APPROVED/REJECTED), reviewedBy, reviewedAt
+```
+
+#### HotelBooking
+```
+Purpose: Hotel room booking
+Fields: bookingNumber, customerId, petId, roomId, checkInDate, checkOutDate, dailyRate, totalDays, subtotal, serviceFee, discountAmount, total, status (CONFIRMED/CHECKED_IN/CHECKED_OUT/CANCELLED), notes, createdBy
+```
+
+#### HotelBookingService
+```
+Purpose: Add-on services for hotel stay
+Fields: bookingId, serviceType (GROOMING/EXTRA_FOOD/MEDICATION/PLAYTIME), quantity, unitPrice, subtotal, notes
+```
+
+#### HotelRoom
+```
+Purpose: Hotel room
+Fields: roomNumber, name, type, capacity, amenities, dailyRate, currentOccupancy, status (AVAILABLE/OCCUPIED/MAINTENANCE), createdBy
+```
+
+#### Supplier
+```
+Purpose: Supplier master data
+Fields: name, phone, email, address, city, postalCode, contactPerson, paymentTerms, specialization, status (ACTIVE/INACTIVE/BLACKLIST), verifiedBy, verifiedAt, createdBy
+```
+
+#### PurchaseOrder
+```
+Purpose: Purchase order to supplier
+Fields: poNumber, supplierId, orderDate, requiredDate, status (PENDING/PARTIAL_RECEIVED/RECEIVED/CANCELLED), totalAmount, notes, createdBy
+```
+
+#### PurchaseOrderItem
+```
+Purpose: Item in a PO
+Fields: poId, productId, drugId, quantity, unitPrice, receivedQuantity, receivedAt
+```
+
+#### GoodsReceipt
+```
+Purpose: Goods received note
+Fields: grNumber, poId, receivedDate, createdBy, notes
 ```
 
 #### AuditLog
 ```
-Purpose: System audit trail for critical operations
-Relationships: belongs to User (optional)
-Indexes: user_id, model_type + model_id, action, created_at
-Constraints: model_type + model_id indexed for lookups
-Lifecycle: Created once, immutable, rolling 12-month retention
-Ownership: System-managed
+Purpose: System audit trail (immutable)
+Fields: userId, action (CREATE/UPDATE/DELETE/ARCHIVE/PAYMENT/STATUS_CHANGE/APPROVE/REJECT), entityType, entityId, changes (JSON), ipAddress, userAgent
+Retention: Rolling 12-month, archived not deleted
 ```
 
 #### Notification
 ```
-Purpose: In-app notifications for users
-Relationships: belongs to User
-Indexes: user_id, is_read, created_at
-Constraints: user_id required, auto-expire after 7 days
-Lifecycle: Created on event, auto-deleted after 7 days
-Ownership: System-managed, user marks as read
+Purpose: In-app notifications
+Fields: userId, title, message, type, isRead, readAt, createdAt
+Auto-delete after 7 days
 ```
 
 #### Setting
 ```
 Purpose: System configuration key-value store
-Relationships: None (standalone)
-Indexes: key (unique)
-Constraints: key unique, value is JSON
-Lifecycle: Created by Owner, updatable
-Ownership: Owner manages all settings
+Fields: key (unique), value (JSON), createdBy, updatedBy, updatedAt
+Keys: company_info, tax_config, payment_methods, numbering_format, hotel_rates, fraud_policies
+```
+
+### 10.3 Enums
+
+```
+enum UserRole { OWNER, DOKTER, KASIR, CUSTOMER }
+enum UserStatus { ACTIVE, INACTIVE }
+enum CustomerStatus { ACTIVE, INACTIVE }
+enum PetStatus { ACTIVE, ARCHIVED }
+enum AppointmentStatus { PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW }
+enum VisitStatus { DRAFT, COMPLETED, PAID }
+enum BillingStatus { OPEN, COMPLETED, PAID, SETTLED }
+enum InvoiceStatus { UNPAID, PARTIAL, PAID }
+enum PrescriptionStatus { ACTIVE, COMPLETED, CANCELLED }
+enum PaymentStatus { PENDING, PAID, FAILED }
+enum HotelBookingStatus { CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED }
+enum HotelRoomStatus { AVAILABLE, OCCUPIED, MAINTENANCE }
+enum ServiceCategory { KONSULTASI, VAKSINASI, GROOMING, OPERASI, LABORATORIUM, XRAY, RAWAT_INAP, LAINNYA }
+enum DrugUnit { TABLET, KAPSULA, BOTOL, VIAL, AMPUL, GRAM, ML, TETES, LAINNYA }
+enum ItemType { SERVICE, DRUG, PRODUCT }
+enum SourceType { VISIT, BILLING, POS }
+enum StockReason { INITIAL, POS_SOLD, BILLING_SOLD, DAMAGED, RETURN, OPNAME_ADJUST, OTHER }
+enum AuditAction { CREATE, UPDATE, DELETE, ARCHIVE, PAYMENT, STATUS_CHANGE, APPROVE, REJECT }
+enum ApprovalStatus { PENDING, APPROVED, REJECTED }
+enum PaymentMethod { CASH, CARD, TRANSFER, CHECK, INSTALLMENT }
+enum SupplierStatus { ACTIVE, INACTIVE, BLACKLIST }
+enum HotelServiceType { GROOMING, EXTRA_FOOD, MEDICATION, PLAYTIME }
 ```
 
 ---
 
-## 11. UI ARCHITECTURE
+## 11. DATA FLOW & WORKFLOWS
 
-### 11.1 Design System
+### 11.1 Clinical Workflow (DOKTER → Auto-Generate Invoice)
+
+```
+STEP 1: APPOINTMENT BOOKING
+├─ CUSTOMER books appointment (via portal) or DOKTER creates (walk-in)
+├─ DOKTER availability checked
+├─ APPOINTMENT record created (PENDING status)
+└─ Customer notified (email)
+
+STEP 2: APPOINTMENT EXECUTION
+├─ DOKTER views today's appointment queue
+├─ Mark appointment as CONFIRMED (customer confirmed attendance)
+├─ CUSTOMER arrives at clinic
+
+STEP 3: CREATE & COMPLETE VISIT
+├─ DOKTER creates VISIT record (from appointment or walk-in)
+├─ DOKTER inputs clinical data:
+│  ├─ Chief complaint
+│  ├─ Physical exam notes
+│  ├─ Vital signs (temp, heart rate, weight)
+│  ├─ Diagnosis
+│  └─ Treatment plan
+├─ DOKTER adds SERVICES to visit:
+│  ├─ Select from OWNER-managed services
+│  ├─ Quantity & unit price populated automatically
+│  └─ Cannot change prices (view-only)
+├─ DOKTER adds DRUGS to visit:
+│  ├─ Select from OWNER-managed drugs
+│  ├─ Input dosage, duration, instructions
+│  ├─ Unit price populated automatically
+│  └─ Cannot change prices (view-only)
+├─ DOKTER completes VISIT (mark status: COMPLETED)
+└─ SYSTEM AUTOMATICALLY:
+   ├─ Create INVOICE (sourceType: VISIT, sourceId: visitId)
+   ├─ Populate invoice items (all services & drugs)
+   ├─ Calculate subtotal (sum of all items)
+   ├─ Apply tax (from settings)
+   ├─ Set status: UNPAID
+   ├─ Create PRESCRIPTION (auto-linked to visit)
+   ├─ Mark APPOINTMENT as COMPLETED
+   └─ Notify KASIR (new invoice pending payment)
+
+STEP 4: KASIR PROCESSES PAYMENT
+├─ KASIR receives notification (new invoice)
+├─ Customer pays (cash, card, transfer, etc)
+├─ KASIR records PAYMENT record
+├─ Invoice status updated:
+│  ├─ PARTIAL if partial payment
+│  └─ PAID if full payment
+└─ Customer receives receipt (email)
+
+STEP 5: AUDIT TRAIL
+├─ All actions logged (DOKTER create visit, KASIR payment)
+├─ Full change history maintained
+├─ No deletion possible (soft-delete only with audit flag)
+└─ All immutable for compliance
+```
+
+### 11.2 Pricing Control Workflow (Fraud Prevention)
+
+```
+STEP 1: INITIAL PRICING (OWNER Sets)
+├─ OWNER creates SERVICE/DRUG/PRODUCT with pricing
+├─ Pricing stored in master data
+├─ Timestamp & version tracked
+└─ All transactions use this price
+
+STEP 2: PRICE CHANGE REQUEST (KASIR Suggests)
+├─ KASIR views current prices (read-only)
+├─ KASIR finds discrepancy (competitor price lower)
+├─ KASIR submits price change request:
+│  ├─ Current price → Proposed price
+│  ├─ Reason required
+│  └─ Submit (status: PENDING)
+└─ SYSTEM LOGS (audit trail created)
+
+STEP 3: OWNER REVIEWS & APPROVES
+├─ OWNER views pending price changes dashboard
+├─ OWNER sees KASIR's proposal with reasoning
+├─ OWNER options:
+│  ├─ APPROVE (price updated immediately, logged)
+│  ├─ REQUEST REVISION (send back to KASIR)
+│  └─ REJECT (with notes why)
+├─ Decision logged with timestamp
+└─ If APPROVED:
+   ├─ New price effective immediately
+   ├─ Old price archived (version history)
+   ├─ KASIR notified
+   └─ All future transactions use new price
+
+STEP 4: ONGOING MONITORING
+├─ OWNER views price change history report
+├─ Margin analysis (target vs actual)
+├─ Anomaly alerts (prices changed outside normal range)
+└─ Full transparency on who changed what & why
+```
+
+### 11.3 Discount Control Workflow (Fraud Prevention)
+
+```
+STEP 1: APPLY DISCOUNT (KASIR Within Policy)
+├─ KASIR at POS during transaction
+├─ Customer asks for discount
+├─ KASIR enters discount (amount or %)
+├─ SYSTEM checks policy:
+│  ├─ If < policy limit → AUTO-APPROVE
+│  └─ If > policy limit → PENDING APPROVAL, notify OWNER
+└─ If approved: receipt printed, transaction closed
+
+STEP 2: DISCOUNT LOGGING
+├─ All discounts logged to DISCOUNT_LOG:
+│  ├─ Invoice ID, KASIR who applied
+│  ├─ Discount amount & percentage
+│  ├─ Reason ("Loyal customer", "Bulk order", "VIP")
+│  ├─ Timestamp, approval status
+└─ IMMUTABLE (cannot modify or delete)
+
+STEP 3: OWNER REVIEWS (Large Discounts)
+├─ OWNER views pending discount approvals
+├─ OWNER sees: KASIR, amount, reason, customer info
+├─ OWNER options: APPROVE / REJECT
+└─ Decision logged
+
+STEP 4: FRAUD DETECTION & REPORTING
+├─ Daily discount report (by KASIR, by customer, by reason)
+├─ Alerts for unusual patterns
+└─ OWNER investigation tools
+```
+
+### 11.4 Daily Reconciliation Workflow (Financial Control)
+
+```
+STEP 1: END OF DAY - KASIR SUBMITS
+├─ KASIR gathers all transactions (POS, invoices, discounts, tax)
+├─ KASIR counts physical cash
+├─ KASIR verifies card/transfer payments
+├─ KASIR submits DAILY_RECONCILIATION
+└─ Day locked (transactions become immutable)
+
+STEP 2: OWNER REVIEWS (Next Day)
+├─ OWNER checks for discrepancies
+├─ OWNER options: APPROVE / REQUEST REVISION
+└─ Decision logged with timestamp
+
+STEP 3: DISCREPANCY HANDLING
+├─ Minor (Rp 50k): document, track pattern, approve
+├─ Major (> Rp 500k): investigate, re-count, resubmit
+└─ Cannot reconcile: escalate, investigate possible fraud
+
+STEP 4: HISTORICAL TRACKING
+├─ All reconciliations stored (cannot delete)
+├─ Monthly variance analysis
+└─ Compliance reporting
+```
+
+---
+
+## 12. UI ARCHITECTURE
+
+### 12.1 Design System
 
 #### Color Palette
 - Primary: hsl(221, 83%, 53%) - Blue
@@ -807,89 +1288,30 @@ Ownership: Owner manages all settings
 - Muted: hsl(220, 14%, 96%) - Light Gray
 - Background: hsl(0, 0%, 100%) - White
 - Foreground: hsl(224, 71%, 4%) - Near Black
-- Card: hsl(0, 0%, 100%) - White
-- Accent: hsl(220, 14%, 96%) - Light Gray
 
 #### Typography
 - Font: Inter (Google Fonts)
-- H1: 36px, font-weight 800
-- H2: 30px, font-weight 700
-- H3: 24px, font-weight 600
-- H4: 20px, font-weight 600
-- Body: 16px, font-weight 400
-- Small: 14px, font-weight 400
-- Caption: 12px, font-weight 400
-
-#### Spacing
-- Use Tailwind spacing scale (4px increments)
+- H1: 36px/800, H2: 30px/700, H3: 24px/600, H4: 20px/600
+- Body: 16px/400, Small: 14px/400, Caption: 12px/400
 
 #### Breakpoints
-- Mobile: 0 - 639px (default)
-- Tablet: 640px - 1023px (sm, md)
-- Desktop: 1024px+ (lg, xl, 2xl)
+- Mobile: 0-639px, Tablet: 640-1023px, Desktop: 1024px+
 
-### 11.2 Component Library
+### 12.2 Component Library (shadcn/ui)
 
-All components sourced from shadcn/ui with project-specific customizations:
+Button, Card, Dialog, AlertDialog, DropdownMenu, Input, Select, Textarea, Form, Label, Table, Tabs, Badge, Alert, Toast, Skeleton, Sheet, Avatar, Separator, Command, Popover, Calendar, Checkbox, RadioGroup, Switch, Tooltip, Breadcrumb, Pagination, ScrollArea
 
-| Component | Usage |
-|---|---|
-| Button | All actions (primary, secondary, destructive, ghost, link variants) |
-| Card | Content containers, dashboard widgets, stat cards |
-| Dialog | Modal forms, confirmations |
-| AlertDialog | Destructive action confirmations |
-| DropdownMenu | Action menus, navigation |
-| Input | Text, number, search fields |
-| Select | Dropdown selections |
-| Textarea | Long text inputs |
-| Form | Form wrapper with validation |
-| Label | Form labels |
-| Table | Data display with sort, filter, pagination |
-| Tabs | Content organization |
-| Badge | Status indicators, tags |
-| Alert | Messages, warnings, errors |
-| Toast | Success/error notifications |
-| Skeleton | Loading states |
-| Sheet | Side panels, mobile navigation |
-| Avatar | User profile images |
-| Separator | Visual dividers |
-| Command | Search, command palette |
-| Popover | Tooltips, dropdowns |
-| Calendar | Date picker |
-| Checkbox | Multi-select, boolean toggles |
-| RadioGroup | Single-select options |
-| Switch | Toggle settings |
-| Tooltip | Hover information |
-| Breadcrumb | Navigation trail |
-| Pagination | List navigation |
-| ScrollArea | Scrollable containers |
+### 12.3 Layout Architecture
 
-### 11.3 Layout Architecture
-
-#### Admin/Staff Layout
+#### Admin/Staff Layout (OWNER, DOKTER, KASIR)
 ```
 ┌─────────────────────────────────────────────────┐
 │ TOP NAVBAR                                      │
 │ [Logo] [Search] [Notifications] [User Menu]     │
 ├──────────┬──────────────────────────────────────┤
-│          │                                      │
 │ SIDEBAR  │ MAIN CONTENT                         │
-│          │ (Server Component with Suspense)     │
-│ Dashboard│                                      │
-│ Visits   │                                      │
-│ Billing  │                                      │
-│ POS      │                                      │
-│ Reports  │                                      │
-│ ──────── │                                      │
-│ Master   │                                      │
-│ Services │                                      │
-│ Drugs    │                                      │
-│ Products │                                      │
-│ Stock    │                                      │
-│ ──────── │                                      │
-│ Users    │                                      │
-│ Settings │                                      │
-│          │                                      │
+│ (per     │ (Server Component with Suspense)     │
+│  role)   │                                      │
 └──────────┴──────────────────────────────────────┘
 ```
 
@@ -899,321 +1321,278 @@ All components sourced from shadcn/ui with project-specific customizations:
 │ TOP NAVBAR                                      │
 │ [Logo] [Notifications] [Profile Menu]           │
 ├─────────────────────────────────────────────────┤
-│                                                 │
 │ MAIN CONTENT (Full Width)                       │
-│ (Server Component with Suspense)                │
-│                                                 │
 └─────────────────────────────────────────────────┘
 ```
 
-#### POS Layout
-```
-┌─────────────────────────────────────────────────┐
-│ TOP NAVBAR                                      │
-├──────────────────────┬──────────────────────────┤
-│                      │                          │
-│ PRODUCT CATALOG      │ CART                     │
-│ [Search/Scan]        │                          │
-│                      │ Items list               │
-│ Category filters     │ Subtotal                 │
-│ Product grid/list    │ Tax                      │
-│                      │ Discount                 │
-│                      │ Total                    │
-│                      │                          │
-│                      │ [Pay] [Clear]            │
-└──────────────────────┴──────────────────────────┘
-```
-
-### 11.4 Responsive Behavior
+### 12.4 Responsive Behavior
 
 | Viewport | Admin Sidebar | POS | Portal |
 |---|---|---|---|
 | Desktop (1024px+) | Visible, collapsible | Side-by-side | Full width |
 | Tablet (640-1023px) | Collapsed to icons | Stacked | Full width |
-| Mobile (<640px) | Hidden, hamburger trigger | Stacked, full-width | Full width |
-
----
-
-## 12. SCREEN SPECIFICATIONS
-
-### 12.1 Login Page
-- **Route:** /login
-- **Actor:** All users
-- **Layout:** Centered card on background
-- **Components:** Email input, password input, remember me checkbox, submit button, forgot password link
-- **Validation:** Email format, required fields
-- **Loading:** Button spinner during submission
-- **Error:** Inline error messages for invalid credentials
-- **Success:** Redirect to role-appropriate dashboard
-
-### 12.2 Owner Dashboard
-- **Route:** /dashboard
-- **Actor:** Owner
-- **Layout:** Stats cards row, charts section, pending actions list, recent transactions table
-- **Components:** Stat cards (4), line chart (visits 7d), bar chart (revenue 30d), data table (recent transactions), alert cards (pending items)
-- **Loading:** Skeleton placeholders for all sections
-- **Empty:** "No data yet" message
-- **Responsive:** Stats stack vertically on mobile, charts full-width
-
-### 12.3 Customer List
-- **Route:** /customers
-- **Actor:** Owner, Doctor, Cashier
-- **Layout:** Toolbar + data table
-- **Components:** Search input, status filter, create button, data table (name, phone, email, pets count, status, actions), pagination
-- **Validation:** Search debounced (300ms)
-- **Loading:** Table skeleton rows
-- **Empty:** "No customers found" with create CTA
-- **Responsive:** Table converts to card list on mobile
-
-### 12.4 Customer Detail
-- **Route:** /customers/[id]
-- **Actor:** Owner, Doctor, Cashier
-- **Layout:** Profile card + tabs (Pets, Visits, Invoices)
-- **Components:** Avatar, info display, edit button, pet cards, visit list, invoice list
-- **Loading:** Skeleton for all sections
-- **Empty:** "No pets/visits/invoices" per tab
-- **Responsive:** Tabs convert to accordion on mobile
-
-### 12.5 Customer Form (Create/Edit)
-- **Route:** /customers/new, /customers/[id]/edit
-- **Actor:** Owner, Doctor, Cashier
-- **Layout:** Single column form
-- **Components:** Name input, phone input, email input, address textarea, save button, cancel button
-- **Validation:** Name required, phone required and unique, email optional and valid format
-- **Loading:** Button spinner during save
-- **Error:** Inline validation messages
-- **Success:** Redirect to customer detail with success toast
-
-### 12.6 Pet Form (Create/Edit)
-- **Route:** /customers/[id]/pets/new, /pets/[id]/edit
-- **Actor:** Owner, Doctor, Cashier, Customer (portal)
-- **Layout:** Single column form
-- **Components:** Name input, species select, breed input, birth date picker, weight input, color input, medical history textarea, save button
-- **Validation:** Name required, species required
-- **Loading:** Button spinner during save
-- **Error:** Inline validation messages
-- **Success:** Redirect to pet detail with success toast
-
-### 12.7 Visit List
-- **Route:** /visits
-- **Actor:** Owner, Doctor, Cashier
-- **Layout:** Toolbar + data table
-- **Components:** Search input, status filter, date range picker, create button, data table (visit number, date, customer, pet, status, actions), pagination
-- **Loading:** Table skeleton rows
-- **Empty:** "No visits found" with create CTA
-- **Responsive:** Table converts to card list on mobile
-
-### 12.8 Visit Form (Create/Edit)
-- **Route:** /visits/new, /visits/[id]/edit
-- **Actor:** Doctor
-- **Layout:** Multi-section form
-- **Sections:**
-  1. Customer Selection (search autocomplete)
-  2. Pet Selection (dropdown, filtered by customer)
-  3. Visit Info (date, time, chief complaint, diagnosis, physical exam notes, treatment notes, vital signs)
-  4. Services Selection (searchable multi-select from master list)
-  5. Drug Selection (searchable multi-select with quantity input from master list)
-  6. Action buttons (Save Draft, Complete Visit)
-- **Validation:** Customer required, pet required, chief complaint required, diagnosis required, at least 1 service or drug selected
-- **Loading:** Button spinner, search debounced
-- **Error:** Inline validation, toast for server errors
-- **Success:** Redirect to visit detail with success toast
-- **Business Rules:** Prices displayed from master data, read-only to doctor
-
-### 12.9 Visit Detail
-- **Route:** /visits/[id]
-- **Actor:** Owner, Doctor, Cashier
-- **Layout:** Header card + sections
-- **Components:** Visit info display, customer/pet info, services list, drugs list, diagnosis display, treatment notes, invoice link (if generated), action buttons (edit if DRAFT, complete if DRAFT, print)
-- **Loading:** Skeleton for all sections
-- **Responsive:** Sections stack on mobile
-
-### 12.10 Billing List
-- **Route:** /billings
-- **Actor:** Owner, Doctor, Cashier
-- **Layout:** Toolbar + data table
-- **Components:** Search input, status filter, create button, data table (billing number, customer, pet, start date, items count, total, status, actions), pagination
-- **Loading:** Table skeleton rows
-- **Empty:** "No billings found"
-
-### 12.11 Billing Detail
-- **Route:** /billings/[id]
-- **Actor:** Owner, Doctor, Cashier
-- **Layout:** Header + items list + actions
-- **Components:** Billing info, customer/pet info, add item button, items table (type, name, quantity, price, subtotal, notes), running total, complete button, invoice link
-- **Loading:** Skeleton
-- **Business Rules:** Add items only while OPEN, complete transitions to COMPLETED
-
-### 12.12 POS Page
-- **Route:** /pos
-- **Actor:** Cashier
-- **Layout:** Two-column (catalog left, cart right)
-- **Components:** Product search input, category filter tabs, product grid (name, price, stock, add button), cart items list, subtotal/tax/discount/total display, payment method select, payment amount input, discount input, pay button, clear button
-- **Loading:** Product grid skeleton
-- **Error:** Insufficient stock warning, payment validation
-- **Success:** Receipt modal with print/email options
-- **Responsive:** Stacked on mobile
-
-### 12.13 Invoice List
-- **Route:** /invoices
-- **Actor:** Owner, Cashier
-- **Layout:** Toolbar + data table
-- **Components:** Search input, status filter, date range picker, data table (invoice number, customer, date, total, paid, status, actions), pagination
-- **Loading:** Table skeleton
-
-### 12.14 Invoice Detail
-- **Route:** /invoices/[id]
-- **Actor:** Owner, Cashier
-- **Layout:** Printable invoice view
-- **Components:** Clinic header, invoice number, customer info, pet info, items table, subtotal, tax, discount, total, paid amount, remaining, payment history, action buttons (print, email, process payment)
-- **Loading:** Skeleton
-- **Responsive:** Full-width printable
-
-### 12.15 Master Data - Services
-- **Route:** /master/services
-- **Actor:** Owner
-- **Layout:** Toolbar + data table
-- **Components:** Search input, category filter, create button, data table (name, category, price, status, usage count, actions), pagination, create/edit dialog
-- **Loading:** Table skeleton
-- **Validation:** Name required and unique, price required and >= 0, category required
-
-### 12.16 Master Data - Drugs
-- **Route:** /master/drugs
-- **Actor:** Owner
-- **Layout:** Toolbar + data table
-- **Components:** Search input, create button, data table (name, unit, price, status, usage count, actions), pagination, create/edit dialog
-- **Loading:** Table skeleton
-- **Validation:** Name required and unique, unit required, price required and >= 0
-
-### 12.17 Master Data - Products
-- **Route:** /master/products
-- **Actor:** Owner
-- **Layout:** Toolbar + data table
-- **Components:** Search input, category filter, create button, data table (name, category, price, stock, reorder point, status, actions), pagination, create/edit dialog
-- **Loading:** Table skeleton
-- **Validation:** Name required and unique, category required, price required and >= 0
-
-### 12.18 Stock Management
-- **Route:** /master/stock
-- **Actor:** Owner, Admin
-- **Layout:** Toolbar + data table
-- **Components:** Search input, low stock filter, data table (product, category, current stock, reorder point, status, adjust button), stock adjustment dialog, movement history link
-- **Loading:** Table skeleton
-- **Validation:** Adjustment quantity required, reason required
-
-### 12.19 User Management
-- **Route:** /settings/users
-- **Actor:** Owner
-- **Layout:** Toolbar + data table
-- **Components:** Search input, role filter, create button, data table (name, email, role, status, last login, actions), pagination, create/edit dialog
-- **Loading:** Table skeleton
-- **Validation:** Name required, email required and unique, role required
-
-### 12.20 Settings
-- **Route:** /settings
-- **Actor:** Owner
-- **Layout:** Tabbed sections
-- **Tabs:** Company Info, Tax Configuration, Payment Methods, Numbering Format
-- **Components:** Form fields per tab, save button per section
-- **Loading:** Form skeleton
-
-### 12.21 Reports
-- **Route:** /reports
-- **Actor:** Owner
-- **Layout:** Tabbed report views
-- **Tabs:** Daily, Revenue, Inventory, Customers, Payments
-- **Components:** Date pickers, filter selects, data tables, charts, export buttons (CSV)
-- **Loading:** Chart skeletons, table skeletons
-
-### 12.22 Customer Portal - Dashboard
-- **Route:** /portal/dashboard
-- **Actor:** Customer
-- **Layout:** Welcome section, pet cards, recent visits, unpaid invoices
-- **Components:** Greeting text, pet quick-access cards, visit timeline, invoice alerts
-- **Loading:** Skeleton
-- **Empty:** "No visits yet" message
-
-### 12.23 Customer Portal - My Pets
-- **Route:** /portal/pets
-- **Actor:** Customer
-- **Layout:** Pet cards grid
-- **Components:** Pet cards (name, species, breed, age, weight), add pet button, pet detail link
-- **Loading:** Skeleton cards
-- **Empty:** "No pets yet" with add CTA
-
-### 12.24 Customer Portal - Visit History
-- **Route:** /portal/visits
-- **Actor:** Customer
-- **Layout:** Filter bar + visit list
-- **Components:** Pet filter, date range picker, status filter, visit cards (date, pet, diagnosis, status, actions), visit detail link
-- **Loading:** Skeleton cards
-- **Empty:** "No visits yet"
-
-### 12.25 Customer Portal - Invoices
-- **Route:** /portal/invoices
-- **Actor:** Customer
-- **Layout:** Invoice list
-- **Components:** Invoice cards (number, date, total, status, download button), filter by status
-- **Loading:** Skeleton cards
-- **Empty:** "No invoices yet"
-
-### 12.26 Customer Portal - Prescriptions
-- **Route:** /portal/prescriptions
-- **Actor:** Customer
-- **Layout:** Prescription list
-- **Components:** Prescription cards (number, date, drug list, download button)
-- **Loading:** Skeleton cards
-- **Empty:** "No prescriptions yet"
-
-### 12.27 Customer Portal - Profile
-- **Route:** /portal/profile
-- **Actor:** Customer
-- **Layout:** Profile form
-- **Components:** Name input, phone input, email input, address textarea, save button, change password section
-- **Validation:** Name required, phone required and unique, email valid format
-- **Loading:** Form skeleton
+| Mobile (<640px) | Hidden, hamburger | Stacked, full-width | Full width |
 
 ---
 
 ## 13. NAVIGATION SPECIFICATION
 
-### 13.1 Admin/Staff Sidebar Navigation
+### 13.1 OWNER Sidebar (12+ items)
 
-| Section | Items | Roles |
-|---|---|---|
-| Overview | Dashboard | Owner |
-| Operations | Customers, Visits, Billing, POS | Owner, Doctor, Cashier |
-| Finance | Invoices, Payments | Owner, Cashier |
-| Reports | All Reports | Owner |
-| Master Data | Services, Drugs, Products, Stock | Owner |
-| Administration | Users, Settings | Owner |
+| # | Label | Path |
+|---|-------|------|
+| 1 | Dashboard | `/dashboard` |
+| 2 | Approvals | `/owner/approvals` |
+| 3 | Master Data | `/owner/master` |
+| 4 | Customers | `/customers` |
+| 5 | Financial Reports | `/reports/financial` |
+| 6 | Operational Reports | `/reports/operational` |
+| 7 | Daily Reconciliation | `/reconciliation` |
+| 8 | Audit Logs | `/audit-logs` |
+| 9 | Suppliers | `/suppliers` |
+| 10 | Settings | `/settings` |
+| 11 | Users | `/settings/users` |
 
-### 13.2 Customer Portal Navigation
+### 13.2 DOKTER Sidebar (5 items)
 
-| Items | Roles |
-|---|---|
-| Dashboard, My Pets, Visit History, Invoices, Prescriptions, Profile | Customer |
+| # | Label | Path |
+|---|-------|------|
+| 1 | Dashboard | `/dashboard` |
+| 2 | Appointments | `/appointments` |
+| 3 | Visits | `/visits` |
+| 4 | Patients | `/customers` |
+| 5 | Prescriptions | `/prescriptions` |
 
-### 13.3 Navigation Behavior
-- Sidebar collapses to icons on tablet
-- Sidebar hidden with hamburger menu on mobile
-- Active item highlighted
-- Section dividers between logical groups
-- User avatar and role displayed at bottom of sidebar
-- Logout button in user menu
+### 13.3 KASIR Sidebar (9 items)
+
+| # | Label | Path |
+|---|-------|------|
+| 1 | Dashboard | `/dashboard` |
+| 2 | POS/Transactions | `/pos` |
+| 3 | Invoices & Payments | `/invoices` |
+| 4 | Receivables | `/invoices?status=UNPAID` |
+| 5 | Customers | `/customers` |
+| 6 | Inventory | `/stock` |
+| 7 | Hotel | `/hotel` |
+| 8 | Suppliers | `/suppliers` |
+| 9 | Daily Close | `/reconciliation` |
+
+### 13.4 CUSTOMER Portal Navigation (8 items)
+
+| # | Label | Path |
+|---|-------|------|
+| 1 | Dashboard | `/portal/dashboard` |
+| 2 | My Pets | `/portal/pets` |
+| 3 | My Visits | `/portal/visits` |
+| 4 | Appointments | `/portal/appointments` |
+| 5 | Prescriptions | `/portal/prescriptions` |
+| 6 | Invoices & Payments | `/portal/invoices` |
+| 7 | Hotel Bookings | `/portal/hotel-bookings` |
+| 8 | Profile | `/portal/profile` |
 
 ---
 
-## 14. BACKEND ARCHITECTURE
+## 14. SCREEN SPECIFICATIONS
 
-### 14.1 Folder Structure
+### 14.1 Login Page
+- **Route:** /login
+- **Layout:** Centered card on background
+- **Components:** Email input, password input, remember me checkbox, submit button, forgot password link
+- **Validation:** Email format, required fields
+- **Success:** Redirect to role-appropriate dashboard
+
+### 14.2 Owner Dashboard
+- **Route:** /dashboard
+- **Actor:** OWNER
+- **Layout:** KPI stat cards row, critical alerts section, revenue trends chart, financial snapshot, approval queue, recent transactions
+- **Components:** Stat cards (revenue, customers, operations), line chart (revenue 30d), alert cards (pending approvals), data table (recent transactions), approval action buttons
+
+### 14.3 DOKTER Dashboard
+- **Route:** /dashboard
+- **Actor:** DOKTER
+- **Layout:** Today's clinical overview, schedule & queue, alerts & action items, recent visits
+- **Components:** Appointment queue, quick actions (start visit, reschedule), vaccination due alerts, recent visit cards
+
+### 14.4 KASIR Dashboard
+- **Route:** /dashboard
+- **Actor:** KASIR
+- **Layout:** Today's financial summary, alerts & action items, payment collection status, inventory health, hotel occupancy
+- **Components:** Revenue breakdown, pending payments, receivables aging, stock health indicators, hotel occupancy stats
+
+### 14.5 Customer Portal Dashboard
+- **Route:** /portal/dashboard
+- **Actor:** CUSTOMER
+- **Layout:** Personalized greeting, pets & appointments, latest visits & prescriptions, invoices & payments
+- **Components:** Quick stats, pet cards, visit timeline, invoice alerts
+
+### 14.6 Customer List
+- **Route:** /customers
+- **Actor:** OWNER, DOKTER (view-only), KASIR (full CRUD)
+- **Layout:** Toolbar + data table
+- **Components:** Search input, status filter, create button, data table (name, phone, email, pets count, status, actions), pagination
+
+### 14.7 Customer Detail
+- **Route:** /customers/[id]
+- **Layout:** Profile card + tabs (Pets, Visits, Invoices)
+
+### 14.8 Customer Form (Create/Edit)
+- **Route:** /customers/new, /customers/[id]/edit
+- **Layout:** Single column form (name, phone, email, address, city, postal code)
+
+### 14.9 Pet Form (Create/Edit)
+- **Route:** /customers/[id]/pets/new, /pets/[id]/edit
+- **Layout:** Single column form (name, species, breed, birth date, weight, color, medical notes, image)
+
+### 14.10 Visit List
+- **Route:** /visits
+- **Layout:** Toolbar + data table (visit number, date, customer, pet, status, actions)
+
+### 14.11 Visit Form (Create/Edit)
+- **Route:** /visits/new, /visits/[id]/edit
+- **Actor:** DOKTER
+- **Layout:** Multi-section form:
+  1. Customer Selection (search autocomplete)
+  2. Pet Selection (dropdown, filtered by customer)
+  3. Visit Info (date, time, chief complaint, diagnosis, physical exam notes, treatment notes, vital signs)
+  4. Services Selection (searchable multi-select from master list, prices read-only)
+  5. Drug Selection (searchable multi-select with quantity/dosage/duration from master list, prices read-only)
+  6. Action buttons (Save Draft, Complete Visit)
+
+### 14.12 Visit Detail
+- **Route:** /visits/[id]
+- **Layout:** Header card + sections (visit info, customer/pet info, services list, drugs list, diagnosis, treatment notes, invoice link, action buttons)
+
+### 14.13 Appointment List
+- **Route:** /appointments
+- **Actor:** DOKTER, KASIR (limited), CUSTOMER (own)
+- **Layout:** Calendar view + list view toggle, toolbar with date/doctor filters
+
+### 14.14 Appointment Form
+- **Route:** /appointments/new
+- **Layout:** Customer/pet selection, doctor selection, date/time slot picker, appointment type, notes
+
+### 14.15 Billing List
+- **Route:** /billings
+- **Layout:** Toolbar + data table (billing number, customer, pet, start date, items count, total, status, actions)
+
+### 14.16 Billing Detail
+- **Route:** /billings/[id]
+- **Layout:** Header + items list + actions (add item button, items table, running total, complete button, invoice link)
+
+### 14.17 POS Page
+- **Route:** /pos
+- **Actor:** KASIR
+- **Layout:** Two-column (catalog left, cart right)
+- **Components:** Product search, category filter tabs, product grid, cart items, subtotal/tax/discount/total, payment method select, payment amount input, discount input, pay button
+
+### 14.18 Invoice List
+- **Route:** /invoices
+- **Actor:** OWNER, KASIR
+- **Layout:** Toolbar + data table (invoice number, customer, date, total, paid, status, actions)
+
+### 14.19 Invoice Detail
+- **Route:** /invoices/[id]
+- **Layout:** Printable invoice view (clinic header, invoice number, customer/pet info, items table, subtotal/tax/discount/total, payment history, action buttons)
+
+### 14.20 Master Data - Services
+- **Route:** /master/services or /owner/master/services
+- **Actor:** OWNER
+- **Layout:** Toolbar + data table + create/edit dialog
+
+### 14.21 Master Data - Drugs
+- **Route:** /master/drugs or /owner/master/drugs
+- **Actor:** OWNER
+- **Layout:** Toolbar + data table + create/edit dialog
+
+### 14.22 Master Data - Products
+- **Route:** /master/products or /owner/master/products
+- **Actor:** OWNER
+- **Layout:** Toolbar + data table + create/edit dialog
+
+### 14.23 Stock Management
+- **Route:** /stock or /master/stock
+- **Actor:** KASIR (adjust with approval), OWNER (direct)
+- **Layout:** Toolbar + data table (product, category, current stock, reorder point, status, adjust button)
+
+### 14.24 Owner Approvals
+- **Route:** /owner/approvals
+- **Actor:** OWNER
+- **Layout:** Tabbed sections (Price Changes, Discounts, Stock Adjustments, Suppliers, Reconciliation)
+- **Components:** Pending items list with approve/reject buttons, approval history
+
+### 14.25 Hotel Management
+- **Route:** /hotel
+- **Actor:** KASIR
+- **Layout:** Calendar view (room occupancy) + booking list
+- **Components:** Room cards, create booking dialog, check-in/check-out buttons
+
+### 14.26 Supplier Management
+- **Route:** /suppliers
+- **Actor:** KASIR (create/PO), OWNER (approve)
+- **Layout:** Toolbar + data table (supplier list, PO tracking)
+
+### 14.27 Daily Reconciliation
+- **Route:** /reconciliation
+- **Actor:** KASIR (submit), OWNER (review)
+- **Layout:** Reconciliation form (expected vs actual per payment method), submit/review buttons
+
+### 14.28 User Management
+- **Route:** /settings/users
+- **Actor:** OWNER
+- **Layout:** Toolbar + data table + create/edit dialog
+
+### 14.29 Settings
+- **Route:** /settings
+- **Actor:** OWNER
+- **Layout:** Tabbed sections (Company Info, Tax, Payment Methods, Numbering Format, Hotel Rates, Business Hours, Fraud Policies)
+
+### 14.30 Reports
+- **Route:** /reports
+- **Actor:** OWNER, KASIR (financial), DOKTER (clinical only)
+- **Layout:** Tabbed report views (Daily, Revenue, Inventory, Customers, Payments, Hotel, Supplier, Clinical)
+- **Components:** Date pickers, filter selects, data tables, charts, export buttons (CSV/PDF/Excel)
+
+### 14.31 Customer Portal - My Pets
+- **Route:** /portal/pets
+- **Layout:** Pet cards grid + add pet button
+
+### 14.32 Customer Portal - Visit History
+- **Route:** /portal/visits
+- **Layout:** Filter bar + visit cards (date, pet, diagnosis, status)
+
+### 14.33 Customer Portal - Appointments
+- **Route:** /portal/appointments
+- **Layout:** Calendar view + upcoming appointments list, booking form
+
+### 14.34 Customer Portal - Invoices
+- **Route:** /portal/invoices
+- **Layout:** Invoice cards (number, date, total, status, download button)
+
+### 14.35 Customer Portal - Prescriptions
+- **Route:** /portal/prescriptions
+- **Layout:** Prescription cards (number, date, drug list, download button)
+
+### 14.36 Customer Portal - Hotel Bookings
+- **Route:** /portal/hotel-bookings
+- **Layout:** Available rooms, booking form, upcoming bookings list
+
+### 14.37 Customer Portal - Profile
+- **Route:** /portal/profile
+- **Layout:** Profile form (name, phone, email, address, change password)
+
+---
+
+## 15. BACKEND ARCHITECTURE
+
+### 15.1 Folder Structure
 
 ```
 src/
 ├── app/
 │   ├── (auth)/
 │   │   ├── login/page.tsx
-│   │   ├── register/page.tsx
+│   │   ├── forgot-password/page.tsx
+│   │   ├── reset-password/page.tsx
 │   │   └── layout.tsx
 │   ├── (dashboard)/
 │   │   ├── layout.tsx
@@ -1233,6 +1612,10 @@ src/
 │   │   │   └── [id]/
 │   │   │       ├── page.tsx
 │   │   │       └── edit/page.tsx
+│   │   ├── appointments/
+│   │   │   ├── page.tsx
+│   │   │   ├── new/page.tsx
+│   │   │   └── [id]/page.tsx
 │   │   ├── billings/
 │   │   │   ├── page.tsx
 │   │   │   ├── new/page.tsx
@@ -1241,15 +1624,42 @@ src/
 │   │   ├── invoices/
 │   │   │   ├── page.tsx
 │   │   │   └── [id]/page.tsx
+│   │   ├── prescriptions/
+│   │   │   ├── page.tsx
+│   │   │   └── [id]/page.tsx
+│   │   ├── hotel/
+│   │   │   ├── page.tsx
+│   │   │   ├── rooms/page.tsx
+│   │   │   ├── bookings/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── new/page.tsx
+│   │   │   │   └── [id]/page.tsx
+│   │   │   └── [id]/page.tsx
+│   │   ├── suppliers/
+│   │   │   ├── page.tsx
+│   │   │   ├── new/page.tsx
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx
+│   │   │       └── po/new/page.tsx
+│   │   ├── reconciliation/
+│   │   │   ├── page.tsx
+│   │   │   └── [id]/page.tsx
 │   │   ├── master/
 │   │   │   ├── services/page.tsx
 │   │   │   ├── drugs/page.tsx
 │   │   │   ├── products/page.tsx
 │   │   │   └── stock/page.tsx
-│   │   ├── reports/page.tsx
+│   │   ├── reports/
+│   │   │   ├── page.tsx
+│   │   │   ├── financial/page.tsx
+│   │   │   └── operational/page.tsx
+│   │   ├── owner/
+│   │   │   ├── approvals/page.tsx
+│   │   │   └── master/page.tsx
 │   │   ├── settings/
 │   │   │   ├── page.tsx
 │   │   │   └── users/page.tsx
+│   │   ├── audit-logs/page.tsx
 │   │   └── notifications/page.tsx
 │   ├── (portal)/
 │   │   ├── layout.tsx
@@ -1262,13 +1672,25 @@ src/
 │   │   │   │       ├── page.tsx
 │   │   │   │       └── edit/page.tsx
 │   │   │   ├── visits/page.tsx
+│   │   │   ├── appointments/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── new/page.tsx
+│   │   │   │   └── [id]/page.tsx
 │   │   │   ├── invoices/page.tsx
 │   │   │   ├── prescriptions/page.tsx
+│   │   │   ├── hotel-bookings/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── new/page.tsx
+│   │   │   │   └── [id]/page.tsx
 │   │   │   └── profile/page.tsx
 │   ├── api/
 │   │   ├── auth/[...nextauth]/route.ts
 │   │   ├── upload/route.ts
-│   │   └── health/route.ts
+│   │   ├── health/route.ts
+│   │   ├── notifications/
+│   │   │   ├── [id]/read/route.ts
+│   │   │   └── mark-all-read/route.ts
+│   │   └── cron/cleanup/route.ts
 │   ├── layout.tsx
 │   └── page.tsx
 ├── server/
@@ -1277,24 +1699,31 @@ src/
 │   │   ├── customers.ts
 │   │   ├── pets.ts
 │   │   ├── visits.ts
+│   │   ├── appointments.ts
+│   │   ├── prescriptions.ts
 │   │   ├── billings.ts
 │   │   ├── pos.ts
 │   │   ├── invoices.ts
 │   │   ├── payments.ts
-│   │   ├── prescriptions.ts
 │   │   ├── services.ts
 │   │   ├── drugs.ts
 │   │   ├── products.ts
 │   │   ├── stock.ts
+│   │   ├── suppliers.ts
+│   │   ├── hotel.ts
+│   │   ├── approvals.ts
+│   │   ├── reconciliation.ts
+│   │   ├── price-suggestions.ts
+│   │   ├── reports.ts
+│   │   ├── audit-logs.ts
 │   │   ├── users.ts
 │   │   ├── settings.ts
-│   │   ├── reports.ts
-│   │   ├── notifications.ts
-│   │   └── uploads.ts
+│   │   └── notifications.ts
 │   ├── queries/
 │   │   ├── customers.ts
 │   │   ├── pets.ts
 │   │   ├── visits.ts
+│   │   ├── appointments.ts
 │   │   ├── billings.ts
 │   │   ├── pos.ts
 │   │   ├── invoices.ts
@@ -1304,6 +1733,8 @@ src/
 │   │   ├── drugs.ts
 │   │   ├── products.ts
 │   │   ├── stock.ts
+│   │   ├── suppliers.ts
+│   │   ├── hotel.ts
 │   │   ├── users.ts
 │   │   ├── settings.ts
 │   │   ├── reports.ts
@@ -1316,6 +1747,7 @@ src/
 │   │   ├── pdf.ts
 │   │   ├── numbers.ts
 │   │   ├── tax.ts
+│   │   ├── cache.ts
 │   │   └── validators.ts
 │   └── middleware.ts
 ├── components/
@@ -1329,11 +1761,16 @@ src/
 │   │   ├── customer-form.tsx
 │   │   ├── pet-form.tsx
 │   │   ├── visit-form.tsx
+│   │   ├── appointment-form.tsx
 │   │   ├── billing-form.tsx
 │   │   ├── service-form.tsx
 │   │   ├── drug-form.tsx
 │   │   ├── product-form.tsx
 │   │   ├── stock-adjustment-form.tsx
+│   │   ├── hotel-booking-form.tsx
+│   │   ├── supplier-form.tsx
+│   │   ├── purchase-order-form.tsx
+│   │   ├── reconciliation-form.tsx
 │   │   ├── user-form.tsx
 │   │   ├── settings-form.tsx
 │   │   └── payment-form.tsx
@@ -1346,10 +1783,12 @@ src/
 │   │   ├── stat-card.tsx
 │   │   ├── pet-card.tsx
 │   │   ├── visit-card.tsx
-│   │   └── invoice-card.tsx
+│   │   ├── invoice-card.tsx
+│   │   └── approval-card.tsx
 │   ├── charts/
 │   │   ├── visits-chart.tsx
-│   │   └── revenue-chart.tsx
+│   │   ├── revenue-chart.tsx
+│   │   └── occupancy-chart.tsx
 │   └── shared/
 │       ├── search-input.tsx
 │       ├── status-badge.tsx
@@ -1386,9 +1825,9 @@ src/
 └── middleware.ts
 ```
 
-### 14.2 Server Actions Design
+### 15.2 Server Actions Design
 
-All mutations use Server Actions. Route Handlers used only for: file upload, health check, and auth callbacks.
+All mutations use Server Actions. Route Handlers used only for: file upload, health check, auth callbacks, and notifications.
 
 #### Action Pattern
 
@@ -1399,189 +1838,248 @@ Every Server Action follows this structure:
 4. Audit log: Record the action
 5. Return: Typed result with success/error
 
-#### Example: createVisit
-
-```
-Input:
-- customer_id: string (validated UUID)
-- pet_id: string (validated UUID)
-- chief_complaint: string (required)
-- diagnosis: string (required)
-- physical_exam_notes: string (optional)
-- treatment_notes: string (optional)
-- weight_kg: number (optional)
-- temperature: number (optional)
-- heart_rate: number (optional)
-- services: Array<{ service_id: string, quantity: number }> (min 1 combined with drugs)
-- drugs: Array<{ drug_id: string, quantity: number }> (min 1 combined with services)
-
-Output:
-- success: boolean
-- data?: { visit_id: string, visit_number: string }
-- error?: { message: string, field?: string }
-
-Validation:
-- customer_id must reference existing customer
-- pet_id must reference existing pet belonging to customer
-- At least 1 service or drug selected
-- All service/drug IDs must reference existing active records
-- Quantity >= 1 for each item
-
-Authorization:
-- Role must be Doctor
-
-Business Rules:
-- Visit number auto-generated: VIS-YYYY-MMDD-XXXXX
-- Prices captured from master data at time of creation
-- Status defaults to DRAFT
-- created_by set to current user
-
-Transaction:
-- Single Prisma transaction: create visit + all visit items
-
-Audit:
-- Log: VISIT_CREATED with customer_id, pet_id, item count
-```
-
-### 14.3 Server Action Reference
+### 15.3 Server Action Reference
 
 #### Auth Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| login | email, password | Public | Max 5 attempts, 30min lockout |
-| logout | none | Authenticated | Clear session |
+| loginUser | email, password | Public | Max 5 attempts, 30min lockout |
+| logoutUser | none | Authenticated | Clear session |
 | forgotPassword | email | Public | Send reset email if account exists |
-| resetPassword | token, email, password | Public | Token valid for 24h |
+| resetPassword | token, email, password | Public | Token valid for 1h |
+| changePassword | userId, oldPassword, newPassword | Authenticated | Password rules enforced |
 
 #### Customer Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| createCustomer | name, phone, email?, address? | Owner, Doctor, Cashier | Phone unique, auto-create portal account |
-| updateCustomer | id, name?, phone?, email?, address? | Owner, Doctor, Cashier | Phone unique if changed |
-| archiveCustomer | id | Owner | Cannot archive with active visits |
+| createCustomer | name, phone, email?, address?, city?, postalCode? | OWNER, DOKTER, KASIR | Phone unique, auto-create portal account |
+| updateCustomer | id, fields... | OWNER, DOKTER, KASIR | Phone unique if changed |
+| archiveCustomer | id | OWNER | Cannot archive with active visits |
 
 #### Pet Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| createPet | customer_id, name, species, breed?, birth_date?, weight_kg?, color?, medical_notes? | Owner, Doctor, Cashier, Customer (own) | Customer must exist |
-| updatePet | id, fields... | Owner, Doctor, Cashier, Customer (own) | Cannot edit archived pet |
-| archivePet | id | Owner, Doctor, Cashier, Customer (own) | Soft delete only |
+| createPet | customerId, petData | OWNER, DOKTER, KASIR, CUSTOMER (own) | Customer must exist |
+| updatePet | id, fields... | OWNER, DOKTER, KASIR, CUSTOMER (own) | Cannot edit archived pet |
+| archivePet | id | OWNER, DOKTER, KASIR, CUSTOMER (own) | Soft delete only |
+
+#### Appointment Actions
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| createAppointment | customerId, petId, doctorId, date, time, type, notes | OWNER, DOKTER, CUSTOMER (own) | Slot availability checked |
+| updateAppointment | id, data | OWNER, DOKTER | Only PENDING/CONFIRMED |
+| cancelAppointment | id, reason | OWNER, DOKTER, CUSTOMER (own) | Policy enforced |
+| completeAppointment | id | DOKTER | Linked visit must exist |
+| markNoShow | id, reason | DOKTER | Logged for tracking |
+| getAvailableSlots | doctorId, date | Authenticated | Returns open time slots |
 
 #### Visit Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| createVisit | customer_id, pet_id, chief_complaint, diagnosis, ...items | Doctor | Prices from master, status DRAFT |
-| updateVisit | id, fields... | Doctor (own, DRAFT only) | Only DRAFT visits editable |
-| addVisitItem | visit_id, item_type, item_id, quantity | Doctor (own, DRAFT only) | Only DRAFT |
-| removeVisitItem | visit_id, item_id | Doctor (own, DRAFT only) | Only DRAFT |
-| completeVisit | id | Doctor (own, DRAFT only) | Auto-generate invoice + prescription |
+| createVisit | customerId, petId, chiefComplaint, diagnosis, ...items | DOKTER | Prices from master, status DRAFT |
+| updateVisit | id, fields... | DOKTER (own, DRAFT only) | Only DRAFT visits editable |
+| addVisitItem | visitId, itemType, itemId, quantity | DOKTER (own, DRAFT only) | Only DRAFT |
+| removeVisitItem | visitId, itemId | DOKTER (own, DRAFT only) | Only DRAFT |
+| completeVisit | id | DOKTER (own, DRAFT only) | Auto-generate invoice + prescription |
+
+#### Prescription Actions
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| generatePrescription | visitId | System (auto on completeVisit) | Auto from drug items |
+| getPrescription | id | OWNER, DOKTER, CUSTOMER (own) | Read-only |
+| completePrescription | id | DOKTER | Status → COMPLETED |
+| cancelPrescription | id, reason | DOKTER | Status → CANCELLED |
 
 #### Billing Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| createBilling | customer_id, pet_id, notes? | Owner, Doctor | Status OPEN |
-| addBillingItem | billing_id, item_type, item_id, quantity, notes? | Owner, Doctor, Cashier | Only OPEN billing |
-| removeBillingItem | billing_id, item_id | Owner, Doctor | Only OPEN billing |
-| completeBilling | id | Owner, Doctor | Auto-generate invoice |
+| createBilling | customerId, petId, notes? | OWNER, DOKTER, KASIR | Status OPEN |
+| addBillingItem | billingId, itemType, itemId, quantity, notes? | OWNER, DOKTER, KASIR | Only OPEN billing |
+| removeBillingItem | billingId, itemId | OWNER, DOKTER | Only OPEN billing |
+| completeBilling | id | OWNER, DOKTER | Auto-generate invoice |
 
 #### POS Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| createPosOrder | customer_id? | Cashier | Optional customer |
-| addPosItem | order_id, product_id, quantity | Cashier | Stock check required |
-| removePosItem | order_id, item_id | Cashier | Before checkout only |
-| checkoutPos | order_id, payment_method, payment_amount, discount? | Cashier | Payment >= total, stock deducted |
+| createPosOrder | customerId? | KASIR | Optional customer |
+| addPosItem | orderId, productId, quantity | KASIR | Stock check required |
+| removePosItem | orderId, itemId | KASIR | Before checkout only |
+| applyDiscount | orderId, discountAmount, reason | KASIR | Approval workflow if > threshold |
+| checkoutPos | orderId, paymentMethod, paymentAmount | KASIR | Payment >= total, stock deducted |
 
 #### Invoice Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| getInvoice | id | Owner, Cashier, Customer (own) | Read-only |
-| downloadInvoicePdf | id | Owner, Cashier, Customer (own) | Generate PDF on demand |
-| emailInvoice | id | Owner, Cashier | Send via Resend |
+| createInvoice | sourceType, sourceId | System (auto) | From visit/billing/POS |
+| getInvoice | id | OWNER, KASIR, CUSTOMER (own) | Read-only |
+| downloadInvoicePdf | id | OWNER, KASIR, CUSTOMER (own) | Generate PDF on demand |
+| emailInvoice | id | OWNER, KASIR | Send via Resend |
 
 #### Payment Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| processPayment | invoice_id, payment_method, amount | Cashier | Amount >= remaining balance |
+| processPayment | invoiceId, paymentMethod, amount | KASIR | Amount >= remaining balance |
+| voidPayment | id, reason | OWNER | Extraordinary cases only |
 
-#### Master Data Actions
+#### Master Data Actions (OWNER Only)
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| createService | name, description, category, price | Owner | Name unique, price >= 0 |
-| updateService | id, fields... | Owner | Price change affects new visits only |
-| archiveService | id | Owner | Soft delete |
-| createDrug | name, description, unit, price_per_unit | Owner | Name unique, unit immutable |
-| updateDrug | id, fields... (except unit) | Owner | Unit cannot change |
-| archiveDrug | id | Owner | Soft delete |
-| createProduct | name, category_id, price, description?, image?, barcode?, reorder_point? | Owner | Name unique |
-| updateProduct | id, fields... | Owner | -- |
-| archiveProduct | id | Owner | Soft delete |
-| createProductCategory | name, description? | Owner | Name unique |
-| updateProductCategory | id, name?, description? | Owner | -- |
-| archiveProductCategory | id | Owner | Cannot archive with active products |
+| createService | name, description, category, price, cost | OWNER | Name unique, price >= 0 |
+| updateService | id, fields... | OWNER | Price change affects new visits only |
+| archiveService | id | OWNER | Soft delete |
+| createDrug | name, description, unit, pricePerUnit, costPerUnit, minimumStock | OWNER | Name unique, unit immutable |
+| updateDrug | id, fields... (except unit) | OWNER | Unit cannot change |
+| archiveDrug | id | OWNER | Soft delete |
+| createProduct | name, categoryId, price, cost, description?, image?, barcode?, reorderPoint? | OWNER | Name unique |
+| updateProduct | id, fields... | OWNER | -- |
+| archiveProduct | id | OWNER | Soft delete |
+| createProductCategory | name, description?, defaultMargin? | OWNER | Name unique |
+| updateProductCategory | id, name?, description? | OWNER | -- |
+| archiveProductCategory | id | OWNER | Cannot archive with active products |
 
 #### Stock Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| adjustStock | product_id, quantity, reason, notes? | Owner, Admin | Creates StockAdjustment record |
+| adjustStock | productId, quantity, reason, notes? | KASIR (with approval if > threshold), OWNER (direct) | Creates StockAdjustment record |
+| approveStockAdjustment | id, notes? | OWNER | Approval workflow |
+| rejectStockAdjustment | id, reason? | OWNER | Reject with reason |
 
-#### User Actions
+#### Price Suggestion Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| createUser | name, email, phone?, role_id | Owner | Email unique |
-| updateUser | id, fields... | Owner | -- |
-| disableUser | id | Owner | Cannot disable self |
-| resetUserPassword | id | Owner | Generate temp password, send email |
+| suggestServicePriceChange | serviceId, newPrice, reason | KASIR | Creates ServiceChangeRequest |
+| suggestDrugPriceChange | drugId, newPrice, reason | KASIR | Creates DrugChangeRequest |
+| suggestProductPriceChange | productId, newPrice, reason | KASIR | Creates ProductChangeRequest |
 
-#### Settings Actions
+#### Approval Actions (OWNER Only)
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
-| updateCompanyInfo | name, logo?, address, phone, email, ... | Owner | -- |
-| updateTaxConfig | type, value, enabled | Owner | -- |
-| updatePaymentMethods | methods[] | Owner | At least 1 active (Cash) |
-| updateNumberingFormat | invoice_prefix?, receipt_prefix?, ... | Owner | -- |
+| approvePriceChange | changeRequestId, notes | OWNER | Price updated, logged |
+| rejectPriceChange | changeRequestId, notes | OWNER | Rejected with reason |
+| approveDiscount | discountId, notes | OWNER | Discount finalized |
+| rejectDiscount | discountId, notes | OWNER | Discount reversed |
+| approveSupplier | supplierId, notes | OWNER | Supplier activated |
+| rejectSupplier | supplierId, notes | OWNER | Supplier rejected |
+| approveReconciliation | reconciliationId, notes | OWNER | Day locked |
+| requestReconciliationRevision | reconciliationId, notes | OWNER | Sent back to KASIR |
+
+#### Hotel Actions
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| getAvailableRooms | checkInDate, checkOutDate | Authenticated | Returns open rooms |
+| createHotelBooking | customerId, petId[], roomId, dates, services[] | KASIR, CUSTOMER (own) | Room availability checked |
+| updateHotelBooking | id, data | KASIR | Only CONFIRMED bookings |
+| cancelHotelBooking | id, reason | KASIR, CUSTOMER (own) | Cancellation policy |
+| checkInHotel | id | KASIR | Status → CHECKED_IN |
+| checkOutHotel | id | KASIR | Status → CHECKED_OUT, generate invoice |
+| addBookingService | bookingId, serviceType, quantity | KASIR | Only while CHECKED_IN |
+
+#### Supplier Actions
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| createSupplier | supplierData | KASIR (suggest), OWNER (approve) | Requires OWNER approval |
+| updateSupplier | id, data | OWNER | -- |
+| createPurchaseOrder | supplierId, items[] | KASIR | Budget threshold check |
+| approvePurchaseOrder | poId | OWNER (if > threshold) | Auto-approve if < threshold |
+| recordGoodsReceipt | poId, items[] | KASIR | Auto-update stock |
+
+#### Reconciliation Actions
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| submitDailyReconciliation | date, kasirData | KASIR | End-of-day close |
+| approveReconciliation | id | OWNER | Day locked |
+| requestReconciliationRevision | id, notes | OWNER | Sent back to KASIR |
+
+#### User Actions (OWNER Only)
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| createUser | name, email, phone?, role, password | OWNER | Email unique |
+| updateUser | id, fields... | OWNER | -- |
+| deactivateUser | id | OWNER | Cannot disable self |
+| reactivateUser | id | OWNER | -- |
+| resetUserPassword | id | OWNER | Generate temp password, send email |
+| lockUser | id, duration | OWNER | Account lockout |
+| unlockUser | id | OWNER | -- |
+
+#### Settings Actions (OWNER Only)
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| updateCompanyInfo | data | OWNER | -- |
+| updateTaxConfig | active, type, value | OWNER | -- |
+| updatePaymentMethods | methods[] | OWNER | At least 1 active (Cash) |
+| updateNumberingFormat | format[] | OWNER | -- |
+| updateHotelRates | rates[] | OWNER | -- |
+| updateFraudPolicies | policies | OWNER | -- |
+
+#### Report Actions
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| getDailyRevenueReport | date | OWNER, KASIR | -- |
+| getRevenueByMethodReport | dateRange | OWNER, KASIR | -- |
+| getRevenueByServiceReport | dateRange | OWNER, KASIR | -- |
+| getInventoryReport | dateRange | OWNER, KASIR | -- |
+| getReceivablesAgingReport | -- | OWNER, KASIR | -- |
+| getVisitStatisticsReport | dateRange | OWNER, DOKTER | -- |
+| getDiagnosisBreakdownReport | dateRange | OWNER, DOKTER | -- |
+| getHotelOccupancyReport | dateRange | OWNER, KASIR | -- |
+| getDiscountReport | dateRange | OWNER | -- |
+| getPriceChangeReport | dateRange | OWNER | -- |
+| getStockAdjustmentReport | dateRange | OWNER | -- |
+| getAllReports | filters | Per permission | Exportable to CSV/PDF/Excel |
+
+#### Audit Log Actions (OWNER Only)
+| Action | Input | Authorization | Business Rules |
+|---|---|---|---|
+| getAuditLogs | filters, pagination | OWNER | Filterable by user, action, entity, date |
+| getAuditTrailForEntity | entityType, entityId | OWNER | Full change history |
+| getUserActivity | userId, dateRange | OWNER | Login history, actions |
+| exportAuditLogs | filters, format | OWNER | CSV/PDF/Excel |
 
 #### Notification Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
 | getNotifications | none | Authenticated | Return user's notifications |
-| markAsRead | notification_id | Authenticated | Owner of notification only |
+| markAsRead | notificationId | Authenticated | Owner of notification only |
 | markAllAsRead | none | Authenticated | -- |
 
-### 14.4 Route Handler Reference
+### 15.4 Route Handler Reference
 
 | Route | Method | Purpose |
 |---|---|---|
 | /api/auth/[...nextauth] | GET/POST | Auth.js handlers |
 | /api/upload | POST | File upload to Supabase Storage |
 | /api/health | GET | Health check endpoint |
+| /api/notifications/[id]/read | POST | Mark notification as read |
+| /api/notifications/mark-all-read | POST | Mark all as read |
+| /api/cron/cleanup | GET | Cleanup job (old temp files, lock reconciliations) |
 
 ---
 
-## 15. VALIDATION RULES
+## 16. VALIDATION RULES
 
-### 15.1 Shared Validation Schemas (Zod)
-
-All validation defined as Zod schemas in shared location, used by both Server Actions and client forms.
+### 16.1 Shared Validation Schemas (Zod)
 
 | Entity | Required Fields | Constraints |
 |---|---|---|
 | Customer | name, phone, address | phone: unique, 10-20 digits, name: 1-255 chars |
 | Pet | name, species | name: 1-255 chars, species: enum, weight: >= 0 |
-| Visit | customer_id, pet_id, chief_complaint, diagnosis | chief_complaint: 1+ chars, diagnosis: 1+ chars |
-| VisitItem | item_type, item_id, quantity | quantity: >= 1, item_id must exist and be active |
-| Billing | customer_id, pet_id | -- |
-| BillingItem | item_type, item_id, quantity | quantity: >= 1 |
+| Appointment | customerId, petId, doctorId, date, time | Date must be future, slot must be available |
+| Visit | customerId, petId, chiefComplaint, diagnosis | chief_complaint: 1+ chars, diagnosis: 1+ chars |
+| VisitItem | itemType, itemId, quantity | quantity: >= 1, item_id must exist and be active |
+| Billing | customerId, petId | -- |
+| BillingItem | itemType, itemId, quantity | quantity: >= 1 |
 | Service | name, category, price | name: 1-100 chars, unique, price: >= 0 |
-| Drug | name, unit, price_per_unit | name: 1-100 chars, unique, price: >= 0 |
-| Product | name, category_id, price | name: 1-100 chars, unique, price: >= 0, category must exist |
+| Drug | name, unit, pricePerUnit | name: 1-100 chars, unique, price: >= 0 |
+| Product | name, categoryId, price | name: 1-100 chars, unique, price: >= 0, category must exist |
 | ProductCategory | name | name: 1-100 chars, unique |
-| PosOrderItem | product_id, quantity | quantity: >= 1, product must exist and have stock |
-| Payment | invoice_id, payment_method, amount | amount: > 0, must cover remaining balance |
-| User | name, email, role_id | email: valid, unique, role must exist |
-| Setting | key, value | key: unique |
+| PosOrderItem | productId, quantity | quantity: >= 1, product must exist and have stock |
+| Payment | invoiceId, paymentMethod, amount | amount: > 0, must cover remaining balance |
+| User | name, email, role | email: valid, unique, role must exist |
+| HotelBooking | customerId, petId[], roomId, checkInDate, checkOutDate | Dates valid, room available |
+| Supplier | name, phone, address | name unique, phone format valid |
+| PurchaseOrder | supplierId, items[] | At least 1 item, supplier active |
 
-### 15.2 Business Logic Validation
+### 16.2 Business Logic Validation
 
 - Cannot create visit for non-existent customer or pet
 - Cannot complete billing with zero items
@@ -1590,18 +2088,21 @@ All validation defined as Zod schemas in shared location, used by both Server Ac
 - Cannot apply archived service, drug, or product
 - Stock cannot go negative
 - At least 1 payment method must be active
-- Doctor cannot modify prices
-- Cashier cannot modify master data
-- Only Owner can configure system settings
-- Customer can only access own data in portal
+- DOKTER cannot modify prices
+- KASIR cannot modify master data
+- Only OWNER can configure system settings
+- CUSTOMER can only access own data in portal
+- Discount > threshold requires OWNER approval
+- Stock adjustment > threshold requires OWNER approval
+- New suppliers require OWNER approval
+- Daily reconciliation requires OWNER approval to lock
 
 ---
 
-## 16. ERROR HANDLING
+## 17. ERROR HANDLING
 
-### 16.1 Error Response Format
+### 17.1 Error Response Format
 
-All Server Actions return:
 ```typescript
 type ActionResult<T> = {
   success: true;
@@ -1616,7 +2117,7 @@ type ActionResult<T> = {
 }
 ```
 
-### 16.2 Error Types
+### 17.2 Error Types
 
 | Code | Description | User Message |
 |---|---|---|
@@ -1628,19 +2129,13 @@ type ActionResult<T> = {
 | INSUFFICIENT_STOCK | Product stock too low | "Insufficient stock for [product]. Available: [qty]" |
 | INVALID_PAYMENT | Payment amount invalid | "Payment amount must cover the remaining balance" |
 | BUSINESS_RULE | Business rule violation | Specific rule violation message |
-
-### 16.3 Error Display
-- Inline field errors below form inputs
-- Toast notifications for server-level errors
-- Error boundaries for component-level errors
-- 404 page for not-found routes
-- 500 page for server errors
+| APPROVAL_REQUIRED | Needs OWNER approval | "This action requires owner approval" |
 
 ---
 
-## 17. AUDIT TRAIL
+## 18. AUDIT TRAIL
 
-### 17.1 Tracked Actions
+### 18.1 Tracked Actions
 - All CREATE, UPDATE, DELETE on master data (services, drugs, products, categories)
 - All visit creation, completion, and payment
 - All billing creation, item addition, completion, and payment
@@ -1649,10 +2144,15 @@ type ActionResult<T> = {
 - All user management actions (create, update, disable, password reset)
 - All settings changes
 - All stock adjustments
+- All price change requests and approvals
+- All discount applications
+- All supplier additions and PO approvals
+- All daily reconciliation submissions and approvals
+- All appointment creation, modification, cancellation
 
-### 17.2 Audit Record Fields
+### 18.2 Audit Record Fields
 - user_id (who performed the action)
-- action (CREATE, UPDATE, DELETE, ARCHIVE, PAYMENT, STATUS_CHANGE)
+- action (CREATE, UPDATE, DELETE, ARCHIVE, PAYMENT, STATUS_CHANGE, APPROVE, REJECT)
 - entity_type (model name)
 - entity_id (record ID)
 - changes (JSON: { field: { old: value, new: value } })
@@ -1660,42 +2160,11 @@ type ActionResult<T> = {
 - user_agent
 - timestamp
 
-### 17.3 Retention
+### 18.3 Retention
 - Rolling 12-month retention
 - Older records archived (not deleted)
-- Owner can view audit logs for any entity
-
----
-
-## 18. NOTIFICATION SYSTEM
-
-### 18.1 Email Notifications (Resend)
-
-| Event | Recipient | Template |
-|---|---|---|
-| Customer registered | Owner | new-customer.html |
-| Visit completed | Customer | visit-completed.html |
-| Invoice generated | Customer | invoice-generated.html |
-| Payment received | Customer | payment-received.html |
-| Low stock alert | Owner | low-stock.html |
-| Daily summary | Owner | daily-summary.html |
-
-Email templates use clinic branding from settings. Plain text fallback included.
-
-### 18.2 In-App Notifications
-
-Stored in Notification table. Displayed via notification bell component.
-
-| Event | Recipient | Type |
-|---|---|---|
-| New customer registered | Owner | info |
-| Visit completed | Customer | info |
-| Invoice generated | Customer | info |
-| Payment received | Customer | success |
-| Low stock | Owner | warning |
-| Unpaid invoice reminder | Owner, Cashier | warning |
-
-Auto-dismiss after 7 days via scheduled cleanup.
+- OWNER can view audit logs for any entity
+- Immutable (cannot modify or delete)
 
 ---
 
@@ -1706,148 +2175,142 @@ Auto-dismiss after 7 days via scheduled cleanup.
 | Bucket | Purpose | Access |
 |---|---|---|
 | avatars | User profile images | Public read, authenticated write |
-| products | Product images | Public read, owner write |
-| clinic | Clinic logo | Public read, owner write |
+| products | Product images | Public read, OWNER write |
+| clinic | Clinic logo | Public read, OWNER write |
 | documents | Generated PDFs (invoices, prescriptions) | Authenticated read, system write |
 | uploads | General file uploads | Authenticated read/write |
+| pets | Pet photos | Public read, authenticated write |
 
 ### 19.2 Upload Constraints
 - Maximum file size: 5MB
 - Allowed types: jpg, jpeg, png, webp, pdf
-- Files stored with UUID-based names to prevent conflicts
-- Original filename preserved in metadata
-
-### 19.3 Security
-- RLS policies on all buckets
-- Upload authenticated via server-side only
-- File type validation server-side
-- No direct client upload to storage
+- Files stored with UUID-based names
+- Server-side file type validation
+- Storage bucket RLS policies
 
 ---
 
-## 20. SEARCH STRATEGY
+## 20. PERFORMANCE STRATEGY
 
-### 20.1 Database Search
-- Customer search: trigram index on name, exact match on phone
-- Product search: trigram index on name, exact match on barcode
-- Service/Drug search: trigram index on name
-- Full PostgreSQL LIKE with ILIKE for simple searches
-
-### 20.2 Search Implementation
-- Debounced search input (300ms delay)
-- Server-side search via Server Actions
-- Results paginated (20 per page)
-- Search term highlighted in results
-
----
-
-## 21. PERFORMANCE STRATEGY
-
-### 21.1 Rendering
-- React Server Components for all data-fetching pages (zero client JS for data)
+### 20.1 Rendering
+- React Server Components for all data-fetching pages
 - Client Components only for interactive elements (forms, dialogs, charts)
 - Streaming with Suspense for progressive loading
-- Static generation for public pages where applicable
 
-### 21.2 Data Fetching
+### 20.2 Data Fetching
 - Server Components fetch data directly (no API overhead)
 - TanStack Query for client-side data that requires caching/refetching
-- Optimistic updates for mutations (UI updates before server confirmation)
-- Prefetching on hover/focus for navigation
+- Optimistic updates for mutations
 
-### 21.3 Database
-- Prisma query optimization (select only needed fields)
-- Eager loading for all relationships (prevent N+1)
-- Database indexes on all frequently queried columns
-- Connection pooling via Supabase
+### 20.3 Caching
+- Dashboard Stats: cached 15 seconds
+- Chart Data: cached 30 seconds
+- Master Data: cached 5 minutes
+- Server-side Cache via `cached()` from `server/lib/cache.ts`
 
-### 21.4 Frontend
-- Tailwind CSS purging unused styles
-- Dynamic imports for heavy components (charts, PDF viewer)
-- Image optimization via Next.js Image component
-- Font optimization via next/font
-
-### 21.5 Caching
-- Browser caching via Cache-Control headers
-- Next.js ISR for semi-static pages
-- Server Component response caching
-- TanStack Query stale-while-revalidate for client data
-
-### 21.6 Targets
+### 20.4 Targets
 - Initial page load: < 2 seconds
 - Navigation: < 1 second
-- Lighthouse score: >= 80
-- Time to Interactive: < 3 seconds
+- Search response: < 1 second (10k+ records)
+- API response: < 500ms (95th percentile)
+- Database query: < 100ms (average)
+- Concurrent users: 100+ without degradation
 
 ---
 
-## 22. SECURITY STRATEGY
+## 21. SECURITY STRATEGY
 
-### 22.1 Authentication
-- Auth.js session-based authentication
+### 21.1 Authentication
+- Auth.js session-based authentication (JWT strategy)
 - Bcrypt password hashing (12 rounds)
 - CSRF protection via Auth.js built-in
 - Secure cookie flags (httpOnly, secure, sameSite)
 - Session timeout: 12 hours
+- Account lockout: 5 failed attempts → 30 minutes
 
-### 22.2 Authorization
+### 21.2 Authorization
 - Server-side role verification in every Server Action
 - Middleware-based route protection
 - Component-level role checks for UI rendering
 - No sensitive data exposed to unauthorized roles
 
-### 22.3 Data Protection
-- All database queries via Prisma (parameterized, no SQL injection)
-- React auto-escaping (no XSS in rendered output)
-- Input validation via Zod at every entry point
-- HTTPS enforced in production
-- Environment variables for all secrets (never committed to git)
-
-### 22.4 File Upload Security
-- Server-side file type validation
-- File size limits enforced
-- UUID-based file naming (prevent path traversal)
-- Storage bucket RLS policies
-
-### 22.5 Rate Limiting
+### 21.3 Rate Limiting
 - Login attempts: 5 per 15 minutes per IP
 - API routes: 100 requests per minute per IP
 - File uploads: 10 per minute per user
 
-### 22.6 Audit
-- All mutations logged with user, action, entity, changes
-- IP address and user agent captured
-- 12-month retention
+### 21.4 Data Protection
+- All database queries via Prisma (parameterized, no SQL injection)
+- React auto-escaping (no XSS)
+- Input validation via Zod at every entry point
+- HTTPS enforced in production
+- Environment variables for all secrets
 
 ---
 
-## 23. TESTING STRATEGY
+## 22. TESTING STRATEGY
 
-### 23.1 Unit Tests (Vitest)
+### 22.1 Unit Tests (Vitest)
 - All server utility functions
 - Zod validation schemas
-- Number generation functions
-- Tax calculation functions
-- Date formatting utilities
-- **Coverage target: > 80% for business logic**
+- Number generation, tax calculation, date formatting
+- Permission checks (RBAC enforcement)
+- Price change approval logic
+- Discount tracking & limits
+- Stock adjustment approval logic
+- Daily reconciliation logic
+- Coverage target: > 80% for business logic
 
-### 23.2 Integration Tests (Vitest)
+### 22.2 Integration Tests (Vitest)
 - Server Actions with mocked Prisma
-- API Route Handlers
-- Auth flows
-- Authorization checks
+- Auth flows and authorization checks
+- End-to-end visit workflow (DOKTER → Invoice → KASIR → Payment)
+- Price change workflow (KASIR suggest → OWNER approve)
+- Discount workflow (KASIR apply → auto/manual approval)
+- Daily reconciliation (KASIR submit → OWNER review)
+- Stock adjustment (KASIR request → OWNER approve)
+- Appointment booking (CUSTOMER → DOKTER → payment)
+- Hotel booking (CUSTOMER → KASIR process → invoicing)
+- Supplier order (KASIR PO → receive → stock update)
+- All roles' data access (no unauthorized access)
+- Audit trails (all actions logged completely)
 
-### 23.3 E2E Tests (Playwright)
-- Complete visit workflow (create -> complete -> pay)
+### 22.3 Security Tests
+- KASIR cannot edit master data (directly accessing API)
+- DOKTER cannot access financial data
+- CUSTOMER cannot see other customer's data
+- Unauthorized role cannot access restricted routes
+- All password hashing working (bcrypt)
+- Session timeouts working (12 hours)
+- Rate limiting working
+- Account lockout working
+- Audit log immutable
+- Soft deletes working
+
+### 22.4 Fraud Prevention Tests
+- KASIR cannot change prices directly
+- Price change requires OWNER approval
+- All price changes logged (who, when, old→new)
+- Discount > threshold requires OWNER approval
+- All discounts logged & immutable
+- Stock adjustment > threshold requires approval
+- Daily reconciliation locks transactions
+- Cannot modify locked transactions
+- Full audit trail (cannot delete, modify, or hide)
+
+### 22.5 E2E Tests (Playwright)
+- Complete visit workflow (create → complete → pay)
 - POS transaction flow
 - Billing workflow
-- Customer portal flows
+- Customer portal flows (login, booking, invoice view)
+- Appointment booking flow
+- Hotel booking flow
 - Login/logout flows
 - CRUD operations for master data
 - Permission enforcement
 - Responsive layouts
 
-### 23.4 Test Organization
+### 22.6 Test Organization
 ```
 tests/
 ├── unit/
@@ -1855,11 +2318,9 @@ tests/
 │   │   ├── numbers.test.ts
 │   │   ├── tax.test.ts
 │   │   └── validators.test.ts
-│   └── server/
-│       └── actions/
+│   └── server/actions/
 ├── integration/
-│   ├── server/
-│   │   └── actions/
+│   ├── server/actions/
 │   └── api/
 └── e2e/
     ├── auth.spec.ts
@@ -1868,14 +2329,18 @@ tests/
     ├── billing.spec.ts
     ├── customers.spec.ts
     ├── portal.spec.ts
+    ├── appointments.spec.ts
+    ├── hotel.spec.ts
+    ├── suppliers.spec.ts
+    ├── reconciliation.spec.ts
     └── master-data.spec.ts
 ```
 
 ---
 
-## 24. DEPLOYMENT STRATEGY
+## 23. DEPLOYMENT STRATEGY
 
-### 24.1 Target Stack
+### 23.1 Target Stack
 - **Hosting:** Vercel
 - **Database:** Supabase (PostgreSQL)
 - **Storage:** Supabase Storage
@@ -1883,73 +2348,44 @@ tests/
 - **CI/CD:** GitHub Actions
 - **Repository:** GitHub
 
-### 24.2 Deployment Pipeline
+### 23.2 Deployment Pipeline
 
 ```
 GitHub Push (main branch)
-    ↓
-GitHub Actions
-    ↓
-Install Dependencies (pnpm install)
-    ↓
-Lint & Type Check (pnpm lint && pnpm typecheck)
-    ↓
-Run Tests (pnpm test)
-    ↓
-Build Next.js (pnpm build)
-    ↓
-Vercel Preview (PR) / Production (main)
-    ↓
-Vercel Build
-    ↓
-Prisma Generate
-    ↓
-Prisma Migrate Deploy (supabase CLI)
-    ↓
-Health Check
-    ↓
-Deploy Complete
+    → GitHub Actions
+    → Install Dependencies (pnpm install)
+    → Lint & Type Check (pnpm lint && pnpm typecheck)
+    → Run Tests (pnpm test)
+    → Build Next.js (pnpm build)
+    → Vercel Preview (PR) / Production (main)
+    → Prisma Generate
+    → Prisma Migrate Deploy
+    → Health Check
+    → Deploy Complete
 ```
 
-If any step fails, deployment stops with clear error notification.
-
-### 24.3 Database Bootstrap
-
-Executed automatically on first deployment and on schema changes:
+### 23.3 Database Bootstrap
 
 ```
 1. prisma generate
 2. prisma migrate deploy
 3. Run seed script (idempotent):
-   - Seed roles (Owner, Doctor, Cashier, Admin)
+   - Seed roles (OWNER, DOKTER, KASIR, CUSTOMER) — 4 roles only
    - Seed permissions
    - Seed role-permission mappings
-   - Seed default services (Konsultasi, Vaksin RABIES, Grooming, etc.)
+   - Seed default services (Konsultasi, Vaksinasi, Grooming, etc.)
    - Seed default drugs (Amoxicillin, Paracetamol, etc.)
    - Seed default product categories (Food, Medicine, Accessories, etc.)
    - Seed default payment methods (Cash)
    - Seed default settings (company info, tax config, numbering format)
 4. Bootstrap Supabase Storage:
-   - Create buckets (avatars, products, clinic, documents, uploads)
-   - Set bucket policies (public read for avatars/products/clinic)
+   - Create buckets (avatars, products, clinic, documents, uploads, pets)
+   - Set bucket policies
    - Set RLS policies
 5. Health check
 ```
 
-Seed script is idempotent: skips existing records, inserts only missing ones.
-
-### 24.4 Supabase Bootstrap
-
-Bootstrap process ensures:
-- Storage buckets exist with correct policies
-- RLS policies are active on all tables
-- Database extensions enabled (uuid-ossp, pg_trgm)
-- Default data seeded
-- Indexes created via Prisma migrations
-
-All operations are idempotent and safe to re-run.
-
-### 24.5 Environment Variables
+### 23.4 Environment Variables
 
 | Variable | Source | Required | Description |
 |---|---|---|---|
@@ -1965,35 +2401,17 @@ All operations are idempotent and safe to re-run.
 | NEXT_PUBLIC_SUPABASE_URL | Supabase | Yes | Public Supabase URL |
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase | Yes | Public Supabase anon key |
 
-### 24.6 Development Setup
+### 23.5 Development Setup
 
 ```bash
-# Clone repository
 git clone <repo-url>
 cd klinik-hewan
-
-# Install dependencies
 pnpm install
-
-# Copy environment file
 cp .env.example .env
-
 # Configure .env with local values
-# - DATABASE_URL: local PostgreSQL or Supabase
-# - NEXTAUTH_SECRET: generate random string
-# - NEXTAUTH_URL: http://localhost:3000
-# - Other variables as needed
-
-# Generate Prisma client
 pnpm prisma generate
-
-# Run migrations
 pnpm prisma migrate dev
-
-# Seed database
 pnpm prisma db seed
-
-# Start development server
 pnpm dev
 ```
 
@@ -2001,69 +2419,47 @@ Application available at http://localhost:3000.
 
 ---
 
-## 25. MONITORING STRATEGY
+## 24. MONITORING & DISASTER RECOVERY
 
-### 25.1 Application Monitoring
+### 24.1 Application Monitoring
 - Vercel Analytics for performance metrics
 - Vercel Speed Insights for Core Web Vitals
 - Custom /api/health endpoint for uptime monitoring
-
-### 25.2 Error Tracking
 - Vercel Error Tracking for server errors
-- Client-side error boundaries with error logging
-- Structured logging for all Server Action errors
 
-### 25.3 Logging
-- Server Action logs: timestamp, action, user_id, entity, result
-- Error logs: timestamp, error type, stack trace, context
-- Audit logs: stored in database (AuditLog table)
-- No sensitive data in logs (passwords, tokens)
-
-### 25.4 Alerts
-- Deployment failure notifications via GitHub
-- Error rate spike detection
-- Database connection issues
-
----
-
-## 26. DISASTER RECOVERY
-
-### 26.1 Backup Strategy
-- **Database:** Supabase automatic daily backups (retention per plan)
+### 24.2 Backup Strategy
+- **Database:** Supabase automatic daily backups
 - **Storage:** Supabase handles storage redundancy
 - **Code:** GitHub repository (distributed)
-- **Environment Variables:** Stored in Vercel (encrypted), backed up in .env.example with placeholders
+- **Environment Variables:** Stored in Vercel (encrypted)
 
-### 26.2 Recovery Procedures
+### 24.3 Recovery Procedures
 1. **Database Recovery:** Restore from Supabase backup dashboard
 2. **Application Recovery:** Redeploy from GitHub main branch
-3. **Storage Recovery:** Supabase handles replication
-4. **Full Recovery:** Clone repo, configure env, run migrations, restore database backup
+3. **Full Recovery:** Clone repo, configure env, run migrations, restore database backup
 
-### 26.3 RPO and RTO
-- **RPO (Recovery Point Objective):** 24 hours (daily backups)
-- **RTO (Recovery Time Objective):** 1 hour (redeploy + restore)
+### 24.4 RPO and RTO
+- **RPO:** 24 hours (daily backups)
+- **RTO:** 1 hour (redeploy + restore)
 
 ---
 
-## 27. CODING STANDARDS
+## 25. CODING STANDARDS
 
-### 27.1 TypeScript
+### 25.1 TypeScript
 - Strict mode enabled
 - No `any` types
 - Explicit return types on all functions
 - Interface names: PascalCase, no `I` prefix
-- Type exports from types/ directory
 
-### 27.2 React Components
+### 25.2 React Components
 - Functional components only
 - Server Components by default
 - Client Components only when state/effects needed
 - File naming: kebab-case for files, PascalCase for components
 - One component per file
-- Props interfaces defined in same file
 
-### 27.3 Server Actions
+### 25.3 Server Actions
 - Named exports (not default)
 - "use server" directive at top of file
 - Zod validation before any database operation
@@ -2071,7 +2467,7 @@ Application available at http://localhost:3000.
 - Audit logging after successful mutations
 - Consistent return type (ActionResult)
 
-### 27.4 Prisma
+### 25.4 Prisma
 - Schema-first approach
 - Migrations for all schema changes
 - Use `select` to limit returned fields
@@ -2079,7 +2475,7 @@ Application available at http://localhost:3000.
 - Transactions for multi-step mutations
 - Soft deletes via status field (no hard deletes on business data)
 
-### 27.5 File Naming
+### 25.5 File Naming
 - Pages: page.tsx
 - Layouts: layout.tsx
 - Components: kebab-case.tsx
@@ -2088,146 +2484,233 @@ Application available at http://localhost:3000.
 - Types: camelCase.ts
 - Tests: *.test.ts (unit/integration), *.spec.ts (e2e)
 
-### 27.6 CSS
+### 25.6 CSS
 - Tailwind CSS only
-- No inline styles
-- No CSS modules
+- No inline styles, no CSS modules
 - shadcn/ui components for consistency
 - Responsive design via Tailwind breakpoints
 
 ---
 
-## 28. NAMING CONVENTIONS
+## 26. NAMING CONVENTIONS
 
-### 28.1 Database
+### 26.1 Database
 - Tables: snake_case, plural (customers, visit_items)
 - Columns: snake_case (created_at, customer_id)
-- Indexes: idx_[table]_[column] (idx_customers_phone)
-- Foreign keys: [referenced_table]_id (customer_id)
-- Enums: UPPER_SNAKE_CASE (ACTIVE, IN_PROGRESS)
+- Indexes: idx_[table]_[column]
+- Foreign keys: [referenced_table]_id
+- Enums: UPPER_SNAKE_CASE
 
-### 28.2 Code
-- Variables: camelCase (customerName, visitDate)
-- Functions: camelCase (createVisit, processPayment)
-- Components: PascalCase (CustomerForm, VisitCard)
-- Types/Interfaces: PascalCase (Customer, VisitItem)
-- Constants: UPPER_SNAKE_CASE (MAX_LOGIN_ATTEMPTS)
-- Files: kebab-case (customer-form.tsx, visit-card.tsx)
+### 26.2 Code
+- Variables: camelCase
+- Functions: camelCase
+- Components: PascalCase
+- Types/Interfaces: PascalCase
+- Constants: UPPER_SNAKE_CASE
+- Files: kebab-case
 
-### 28.3 Routes
+### 26.3 Routes
 - Pages: /section/entity (e.g., /customers, /visits/new)
-- Actions: /api/section/entity (internal, not exposed)
 - Parameters: [id] (dynamic segments)
 
 ---
 
-## 29. ACCEPTANCE CRITERIA
+## 27. ACCEPTANCE CRITERIA
 
-### 29.1 Authentication
+### 27.1 Authentication
 - [ ] User can log in with email and password
 - [ ] Invalid credentials show clear error message
 - [ ] Account locks after 5 failed attempts for 30 minutes
 - [ ] Password reset sends email with valid link
 - [ ] Session expires after 12 hours of inactivity
 - [ ] Logout clears session
+- [ ] Role-based redirect on login
 
-### 29.2 Customer Management
+### 27.2 Customer Management
 - [ ] Staff can create customer with name, phone, address
 - [ ] Phone number is unique across all customers
-- [ ] Duplicate phone number shows validation error
 - [ ] Staff can edit customer profile
 - [ ] Staff can view customer with all pets
 - [ ] Customer portal account auto-created on registration
 
-### 29.3 Pet Management
-- [ ] Staff can add pet to customer with name, species, breed
+### 27.3 Pet Management
+- [ ] Staff can add pet to customer
 - [ ] Customer can add pet via portal
 - [ ] Pet archived (not deleted) when removed
 - [ ] Archived pets hidden from selection dropdowns
 
-### 29.4 Visit Workflow
-- [ ] Doctor can create visit with customer, pet, complaint, diagnosis
-- [ ] Doctor can select multiple services and drugs
-- [ ] Prices are captured from master data at time of selection
-- [ ] Doctor cannot modify service or drug prices
+### 27.4 Appointment Scheduling
+- [ ] Customer can book appointment via portal
+- [ ] DOKTER can create appointment for walk-in
+- [ ] Slot availability checked before booking
+- [ ] Appointment status flow works (PENDING → CONFIRMED → COMPLETED/CANCELLED/NO_SHOW)
+- [ ] Appointment links to visit creation
+
+### 27.5 Visit Workflow
+- [ ] DOKTER can create visit with customer, pet, complaint, diagnosis
+- [ ] DOKTER can select multiple services and drugs
+- [ ] Prices are captured from master data (read-only to DOKTER)
 - [ ] Visit saves as DRAFT
-- [ ] Doctor can complete visit
+- [ ] DOKTER can complete visit
 - [ ] Invoice auto-generated on visit completion
 - [ ] Prescription auto-generated from drug items
-- [ ] DRAFT visits are editable, COMPLETED visits are not
+- [ ] KASIR notified of new invoice
 
-### 29.5 Billing
+### 27.6 Billing
 - [ ] Staff can create billing for customer and pet
-- [ ] Staff can add services, drugs, products to billing
 - [ ] Items can be added while billing is OPEN
 - [ ] Billing can be completed to generate invoice
 - [ ] Completed billing items are immutable
 
-### 29.6 POS
-- [ ] Cashier can search and add products
+### 27.7 POS
+- [ ] KASIR can search and add products
 - [ ] Stock is checked before adding to cart
 - [ ] Subtotal, tax, discount, and total calculate correctly
 - [ ] Payment processed with correct change calculation
 - [ ] Stock decreases on order completion
-- [ ] Receipt generated with unique number
-- [ ] Insufficient stock shows error and prevents sale
+- [ ] Discount approval workflow works (> threshold)
 
-### 29.7 Payment
+### 27.8 Payment
 - [ ] Payment recorded against correct invoice
-- [ ] Invoice status updates correctly (UNPAID -> PAID)
+- [ ] Invoice status updates correctly (UNPAID → PARTIAL → PAID)
 - [ ] Partial payments recorded correctly
-- [ ] Payment cannot exceed invoice total
 - [ ] Payments cannot be deleted
 
-### 29.8 Master Data
-- [ ] Owner can CRUD services, drugs, products
+### 27.9 Master Data (OWNER Only)
+- [ ] OWNER can CRUD services, drugs, products
+- [ ] KASIR cannot edit master data (view-only)
 - [ ] Archived items hidden from selection but visible in history
 - [ ] Product categories cannot be deleted with active products
 - [ ] Drug unit cannot be changed after creation
 - [ ] Service price changes affect only new visits
+- [ ] Change history tracked for all master data
 
-### 29.9 Customer Portal
+### 27.10 Fraud Prevention
+- [ ] Price change requires OWNER approval
+- [ ] Discount > threshold requires OWNER approval
+- [ ] Stock adjustment > threshold requires OWNER approval
+- [ ] New suppliers require OWNER approval
+- [ ] All changes logged with audit trail
+- [ ] Audit trail immutable
+
+### 27.11 Daily Reconciliation
+- [ ] KASIR can submit daily reconciliation
+- [ ] OWNER can approve or request revision
+- [ ] Approved reconciliation locks transactions
+- [ ] Discrepancies flagged and tracked
+
+### 27.12 Hotel Management
+- [ ] KASIR can create hotel booking
+- [ ] Customer can book via portal
+- [ ] Room availability checked
+- [ ] Add-on services tracked
+- [ ] Hotel invoice generated on checkout
+
+### 27.13 Supplier Management
+- [ ] KASIR can suggest new supplier (requires OWNER approval)
+- [ ] KASIR can create purchase order
+- [ ] PO > budget requires OWNER approval
+- [ ] Goods receipt updates stock automatically
+
+### 27.14 Customer Portal
 - [ ] Customer can log in and view dashboard
 - [ ] Customer can view all pets
-- [ ] Customer can view visit history with filtering
-- [ ] Customer can view medical records per visit
+- [ ] Customer can book appointments
+- [ ] Customer can view visit history
 - [ ] Customer can view and download invoices
 - [ ] Customer can view and download prescriptions
+- [ ] Customer can book hotel rooms
 - [ ] Customer can edit own profile
-- [ ] Customer can add/edit pets
 - [ ] Customer cannot access other customers' data
 
-### 29.10 Reports
-- [ ] Owner can view daily report with correct totals
-- [ ] Owner can view revenue report with date filtering
-- [ ] Owner can view inventory report with stock levels
-- [ ] Owner can view customer report with activity data
-- [ ] Reports can be exported as CSV
+### 27.15 Reports
+- [ ] OWNER can view all reports
+- [ ] KASIR can view financial reports
+- [ ] DOKTER can view clinical reports only
+- [ ] Reports can be exported as CSV/PDF/Excel
 
-### 29.11 Notifications
-- [ ] Email sent on visit completion
-- [ ] Email sent on invoice generation
-- [ ] Email sent on payment confirmation
-- [ ] Low stock alert sent to Owner
+### 27.16 Notifications
+- [ ] Email sent on visit completion, invoice generation, payment confirmation
+- [ ] Low stock alert sent to OWNER
 - [ ] In-app notifications displayed in bell component
 - [ ] Notifications marked as read on click
 
-### 29.12 Security
+### 27.17 Security
 - [ ] Unauthorized users cannot access protected routes
-- [ ] Doctors cannot access master data management
-- [ ] Cashiers cannot modify services, drugs, or products
-- [ ] Customers cannot access other customers' data
+- [ ] DOKTER cannot access master data management or financial data
+- [ ] KASIR cannot modify services, drugs, or products
+- [ ] CUSTOMER cannot access other customers' data
 - [ ] All form inputs validated server-side
 - [ ] Audit trail recorded for all mutations
 
-### 29.13 Deployment
-- [ ] Application builds without errors
-- [ ] Database migrations run successfully
-- [ ] Seed data inserted on first deploy
-- [ ] Storage buckets created with correct policies
-- [ ] Health check endpoint returns 200
-- [ ] All environment variables documented and functional
+---
+
+## 28. IMPLEMENTATION PRIORITIES
+
+### Phase 1: Core Foundation (Week 1-2)
+- Authentication & authorization (4 roles)
+- Customer & pet management
+- Master data (services, drugs, products — OWNER only)
+- Visit workflow (DOKTER → auto-invoice)
+- Basic POS
+- Invoice & payment processing
+- Basic dashboard per role
+- Navigation per role
+
+### Phase 2: Fraud Prevention (Week 3-4)
+- Approval workflow models (ServiceChangeRequest, DrugChangeRequest, ProductChangeRequest)
+- DiscountLog model
+- StockAdjustmentApproval model
+- DailyReconciliation model
+- Price change approval UI (OWNER)
+- Discount tracking & approval
+- Stock adjustment approval
+- Audit log system (immutable)
+
+### Phase 3: New Features (Week 5-7)
+- Appointment & Scheduling (DoctorSchedule, Appointment models)
+- Pet Hotel/Boarding (HotelBooking, HotelRoom, HotelService models)
+- Supplier Management (Supplier, PurchaseOrder, GoodsReceipt models)
+- Daily Reconciliation workflow
+- Customer portal enhancements (appointments, hotel bookings)
+
+### Phase 4: Reporting & Polish (Week 8-9)
+- Executive KPI dashboard
+- Financial reports (all types)
+- Operational reports (all types)
+- Hotel analytics
+- Supplier performance reports
+- Anomaly detection & alerts
+- Performance optimization
+- Email notifications
+
+---
+
+## 29. GLOSSARY
+
+```
+ROLES:
+- OWNER: Pemilik klinik, full control, approval authority
+- DOKTER: Dokter hewan, clinical operations only
+- KASIR: Kasir, finance & operations, no pricing control
+- CUSTOMER: Pelanggan, self-service portal only
+
+KEY CONCEPTS:
+- Master Data: Services, Drugs, Products, Categories (OWNER controlled)
+- Pricing Control: Only OWNER can set prices (fraud prevention)
+- Approval Workflow: Suggestion → Review → Approval (immutable audit trail)
+- Audit Trail: Complete log of all actions (who, what, when, why, how)
+- Soft Delete: Archive flag, not hard delete (compliance)
+- Reconciliation: Daily close process (cash count, payment verification)
+- Immutable: Cannot modify or delete once locked (compliance, audit)
+- Fraud Prevention: Multi-layered controls (approval, audit, anomaly detection)
+```
 
 ---
 
 **END OF DOCUMENT**
+
+**Document Authority:** This PRD is the single source of truth for PetCare development. All technical decisions, feature scope, and priorities are based on this document. Changes must be discussed and updated in this PRD before implementation.
+
+**Last Reviewed:** July 2026
+**Next Review:** Monthly or upon major feature addition
