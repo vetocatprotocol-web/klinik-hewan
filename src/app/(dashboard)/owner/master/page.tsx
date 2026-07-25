@@ -1,8 +1,14 @@
-import Link from "next/link";
 import { prisma } from "@/server/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard } from "@/components/cards/stat-card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import {
   Stethoscope,
   Pill,
@@ -12,9 +18,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-export default async function OwnerMasterPage() {
+async function MasterStats() {
   const client = await prisma();
-
   const [totalServices, totalDrugs, totalProducts, totalCategories] =
     await Promise.all([
       client.service.count({ where: { status: "ACTIVE" } }),
@@ -23,202 +28,263 @@ export default async function OwnerMasterPage() {
       client.productCategory.count({ where: { status: "ACTIVE" } }),
     ]);
 
-  const [recentServices, recentDrugs, recentProducts] =
-    await Promise.all([
-      client.service.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 5,
-        select: { id: true, name: true, category: true, price: true, updatedAt: true },
-      }),
-      client.drug.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 5,
-        select: { id: true, name: true, unit: true, pricePerUnit: true, updatedAt: true },
-      }),
-      client.product.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 5,
-        select: { id: true, name: true, currentStock: true, price: true, updatedAt: true },
-      }),
-    ]);
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <StatCard
+        title="Total Layanan"
+        value={totalServices}
+        description="Layanan aktif"
+        icon={<Stethoscope className="h-5 w-5 text-primary" />}
+      />
+      <StatCard
+        title="Total Obat"
+        value={totalDrugs}
+        description="Obat aktif"
+        icon={<Pill className="h-5 w-5 text-blue-500" />}
+      />
+      <StatCard
+        title="Total Produk"
+        value={totalProducts}
+        description="Produk aktif"
+        icon={<Package className="h-5 w-5 text-green-500" />}
+      />
+      <StatCard
+        title="Total Kategori"
+        value={totalCategories}
+        description="Kategori produk"
+        icon={<Tags className="h-5 w-5 text-orange-500" />}
+      />
+    </div>
+  );
+}
 
-  const statCards = [
+async function QuickLinks() {
+  const links = [
     {
-      title: "Total Layanan",
-      value: totalServices,
-      icon: <Stethoscope className="h-5 w-5 text-muted-foreground" />,
       href: "/master/services",
+      label: "Layanan",
+      icon: Stethoscope,
+      description: "Kelola daftar layanan klinik",
     },
     {
-      title: "Total Obat",
-      value: totalDrugs,
-      icon: <Pill className="h-5 w-5 text-muted-foreground" />,
       href: "/master/drugs",
+      label: "Obat",
+      icon: Pill,
+      description: "Kelola daftar obat",
     },
     {
-      title: "Total Produk",
-      value: totalProducts,
-      icon: <Package className="h-5 w-5 text-muted-foreground" />,
       href: "/master/products",
+      label: "Produk",
+      icon: Package,
+      description: "Kelola daftar produk",
     },
     {
-      title: "Total Kategori",
-      value: totalCategories,
-      icon: <Tags className="h-5 w-5 text-muted-foreground" />,
       href: "/master/stock",
+      label: "Stok",
+      icon: TrendingUp,
+      description: "Kelola penyesuaian stok",
     },
-  ];
-
-  const quickLinks = [
-    { title: "Layanan", href: "/master/services", description: "Kelola layanan klinik" },
-    { title: "Obat", href: "/master/drugs", description: "Kelola data obat" },
-    { title: "Produk", href: "/master/products", description: "Kelola data produk" },
-    { title: "Stok", href: "/master/stock", description: "Kelola stok produk" },
   ];
 
   return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Akses Cepat</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "flex h-auto flex-col items-start gap-1 p-4 text-left"
+              )}
+            >
+              <div className="flex w-full items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <link.icon className="h-4 w-4 text-primary" />
+                  <span className="font-medium">{link.label}</span>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {link.description}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+async function RecentChanges() {
+  const client = await prisma();
+  const [recentServices, recentDrugs, recentProducts] = await Promise.all([
+    client.service.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        status: true,
+        updatedAt: true,
+      },
+    }),
+    client.drug.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        pricePerUnit: true,
+        status: true,
+        updatedAt: true,
+      },
+    }),
+    client.product.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        currentStock: true,
+        status: true,
+        updatedAt: true,
+      },
+    }),
+  ]);
+
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Layanan Terbaru</CardTitle>
+          <Link
+            href="/master/services"
+            className="text-sm text-primary hover:underline"
+          >
+            Lihat Semua
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {recentServices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada layanan.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentServices.map((service) => (
+                <div
+                  key={service.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{service.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {service.status === "ACTIVE" ? "Aktif" : "Diarsipkan"}
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium">
+                    Rp {Number(service.price).toLocaleString("id-ID")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Obat Terbaru</CardTitle>
+          <Link
+            href="/master/drugs"
+            className="text-sm text-primary hover:underline"
+          >
+            Lihat Semua
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {recentDrugs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada obat.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentDrugs.map((drug) => (
+                <div
+                  key={drug.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{drug.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {drug.status === "ACTIVE" ? "Aktif" : "Diarsipkan"}
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium">
+                    Rp {Number(drug.pricePerUnit).toLocaleString("id-ID")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Produk Terbaru</CardTitle>
+          <Link
+            href="/master/products"
+            className="text-sm text-primary hover:underline"
+          >
+            Lihat Semua
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {recentProducts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada produk.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{product.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Stok: {product.currentStock}
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium">
+                    Rp {Number(product.price).toLocaleString("id-ID")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default async function OwnerMasterPage() {
+  return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Data Master</h1>
-        <p className="text-sm text-muted-foreground">
-          Ringkasan dan pengelolaan data master klinik
+        <h1 className="text-2xl font-bold">Master Data</h1>
+        <p className="text-muted-foreground">
+          Kelola layanan, obat, produk, dan kategori
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Link key={stat.title} href={stat.href} className="block">
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                {stat.icon}
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Links</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {quickLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/50 transition-colors"
-              >
-                <div>
-                  <p className="font-medium">{link.title}</p>
-                  <p className="text-sm text-muted-foreground">{link.description}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Perubahan Terbaru - Layanan
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentServices.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Belum ada data layanan
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {recentServices.map((service) => (
-                    <div
-                      key={service.id}
-                      className="flex items-center justify-between rounded border p-3 text-sm"
-                    >
-                      <div>
-                        <p className="font-medium">{service.name}</p>
-                        <p className="text-xs text-muted-foreground">{service.category}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Perubahan Terbaru - Obat
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentDrugs.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Belum ada data obat
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {recentDrugs.map((drug) => (
-                    <div
-                      key={drug.id}
-                      className="flex items-center justify-between rounded border p-3 text-sm"
-                    >
-                      <div>
-                        <p className="font-medium">{drug.name}</p>
-                        <p className="text-xs text-muted-foreground">{drug.unit}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Perubahan Terbaru - Produk
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentProducts.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Belum ada data produk
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {recentProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center justify-between rounded border p-3 text-sm"
-                    >
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Stok: {product.currentStock}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <MasterStats />
+      <QuickLinks />
+      <RecentChanges />
     </div>
   );
 }
