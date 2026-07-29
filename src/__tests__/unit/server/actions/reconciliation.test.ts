@@ -94,7 +94,7 @@ describe("Reconciliation Actions", () => {
 
       const result = await submitDailyReconciliation(null, fd);
       expect(result.success).toBe(true);
-      expect(result.data).toBe("rec-1");
+      expect((result as any).data).toBe("rec-1");
     });
 
     it("should return error when reconciliation already exists", async () => {
@@ -116,7 +116,7 @@ describe("Reconciliation Actions", () => {
 
       const result = await submitDailyReconciliation(null, fd);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
   });
 
@@ -159,7 +159,7 @@ describe("Reconciliation Actions", () => {
 
       const result = await approveReconciliation("rec-1");
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
   });
 });

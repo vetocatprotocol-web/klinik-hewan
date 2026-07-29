@@ -29,7 +29,7 @@ export function AppointmentForm({ customers, doctors, onSubmit, initialData, mod
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData?.customerId || "");
   
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<AppointmentFormData>({
-    resolver: zodResolver(appointmentSchema),
+    resolver: zodResolver(appointmentSchema) as any,
     defaultValues: {
       customerId: initialData?.customerId || "",
       petId: initialData?.petId || "",
@@ -68,7 +68,7 @@ export function AppointmentForm({ customers, doctors, onSubmit, initialData, mod
             </div>
             <div className="space-y-2">
               <Label>Hewan <span className="text-destructive">*</span></Label>
-              <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)} disabled={!selectedCustomerId}>
+              <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)}>
                 <SelectTrigger><SelectValue placeholder="Pilih hewan" /></SelectTrigger>
                 <SelectContent>
                   {selectedCustomer?.pets.map((p) => (

@@ -49,7 +49,7 @@ export function UserForm({ initialData, onSubmit, open, onOpenChange, roles = []
             <Select value={watch("roleId")} onValueChange={(v) => setValue("roleId", v)}>
               <SelectTrigger><SelectValue placeholder="Pilih role" /></SelectTrigger>
               <SelectContent>
-                {roles.length > 0 ? roles.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>) : ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                {roles.length > 0 ? roles.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>) : Object.values(ROLES).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
               </SelectContent>
             </Select>
             {errors.roleId && <p className="text-sm text-destructive">{errors.roleId.message}</p>}

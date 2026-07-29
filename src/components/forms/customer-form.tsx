@@ -37,7 +37,7 @@ export function CustomerForm({ initialData, onSuccess, mode }: CustomerFormProps
   const [serverError, setServerError] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors } } = useForm<CustomerFormData>({
-    resolver: zodResolver(customerSchema),
+    resolver: zodResolver(customerSchema) as any,
     defaultValues: {
       name: initialData?.name || "",
       phone: initialData?.phone || "",

@@ -27,7 +27,7 @@ export function BillingForm({ customers, onSubmit, initialData, mode }: BillingF
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData?.customerId || "");
   
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<BillingFormData>({
-    resolver: zodResolver(billingSchema),
+    resolver: zodResolver(billingSchema) as any,
     defaultValues: {
       customerId: initialData?.customerId || "",
       petId: initialData?.petId || "",
@@ -62,7 +62,7 @@ export function BillingForm({ customers, onSubmit, initialData, mode }: BillingF
             </div>
             <div className="space-y-2">
               <Label>Hewan <span className="text-destructive">*</span></Label>
-              <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)} disabled={!selectedCustomerId}>
+              <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)}>
                 <SelectTrigger><SelectValue placeholder="Pilih hewan" /></SelectTrigger>
                 <SelectContent>
                   {selectedCustomer?.pets.map((p) => (

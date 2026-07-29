@@ -83,6 +83,7 @@ export const visitFormSchema = z.object({
   weightKg: z.union([z.number(), z.string()]).optional(),
   temperature: z.union([z.number(), z.string()]).optional(),
   heartRate: z.union([z.number(), z.string()]).optional(),
+  visitItems: z.array(z.any()).optional().default([]),
 });
 
 export const visitSchema = z.object({

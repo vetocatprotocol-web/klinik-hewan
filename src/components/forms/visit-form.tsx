@@ -32,7 +32,7 @@ export function VisitForm({ customers, services, drugs, onSubmit, initialData, m
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData?.customerId || "");
   
   const { register, handleSubmit, watch, setValue, control, formState: { errors, isSubmitting } } = useForm<VisitFormData>({
-    resolver: zodResolver(visitFormSchema),
+    resolver: zodResolver(visitFormSchema) as any,
     defaultValues: {
       customerId: initialData?.customerId || "",
       petId: initialData?.petId || "",
@@ -81,7 +81,7 @@ export function VisitForm({ customers, services, drugs, onSubmit, initialData, m
             </div>
             <div className="space-y-2">
               <Label>Hewan <span className="text-destructive">*</span></Label>
-              <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)} disabled={!selectedCustomerId}>
+              <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)}>
                 <SelectTrigger><SelectValue placeholder="Pilih hewan" /></SelectTrigger>
                 <SelectContent>
                   {selectedCustomer?.pets.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.species})</SelectItem>)}

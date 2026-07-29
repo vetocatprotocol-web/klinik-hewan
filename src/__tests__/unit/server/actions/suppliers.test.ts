@@ -104,7 +104,7 @@ describe("Supplier Actions", () => {
 
       const result = await createSupplier(null, fd);
       expect(result.success).toBe(true);
-      expect(result.data).toBe("sup-1");
+      expect((result as any).data).toBe("sup-1");
       expect(mockPrisma.supplierChangeRequest.create).not.toHaveBeenCalled();
     });
 
@@ -129,7 +129,7 @@ describe("Supplier Actions", () => {
 
       const result = await createSupplier(null, fd);
       expect(result.success).toBe(true);
-      expect(result.data).toBe("sup-2");
+      expect((result as any).data).toBe("sup-2");
       expect(mockPrisma.supplierChangeRequest.create).toHaveBeenCalled();
     });
   });
@@ -181,7 +181,7 @@ describe("Supplier Actions", () => {
 
       const result = await createPurchaseOrder("sup-1", []);
       expect(result.success).toBe(false);
-      expect(result.error?.field).toBe("items");
+      expect((result as any).error?.field).toBe("items");
     });
 
     it("should return error when supplier is inactive", async () => {
@@ -198,7 +198,9 @@ describe("Supplier Actions", () => {
         { productId: "prod-1", quantity: 10, unitPrice: 5000 },
       ]);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      if (!result.success) {
+        expect((result as any).error?.code).toBe("BUSINESS_RULE");
+      }
     });
   });
 
@@ -268,7 +270,9 @@ describe("Supplier Actions", () => {
         { poItemId: "poi-1", receivedQuantity: 5 },
       ]);
       expect(result.success).toBe(false);
-      expect(result.error?.field).toBe("items");
+      if (!result.success) {
+        expect((result as any).error?.field).toBe("items");
+      }
     });
   });
 });

@@ -23,7 +23,7 @@ interface SupplierFormProps {
 
 export function SupplierForm({ initialData, onSubmit, open, onOpenChange }: SupplierFormProps) {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SupplierFormData>({
-    resolver: zodResolver(supplierSchema),
+    resolver: zodResolver(supplierSchema) as any,
     defaultValues: { name: initialData?.name || "", phone: initialData?.phone || "", email: initialData?.email || "", address: initialData?.address || "", city: initialData?.city || "", postalCode: initialData?.postalCode || "", contactPerson: initialData?.contactPerson || "", paymentTerms: initialData?.paymentTerms || "", specialization: initialData?.specialization || "" },
   });
 

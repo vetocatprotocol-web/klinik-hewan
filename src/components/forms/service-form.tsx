@@ -31,7 +31,7 @@ interface ServiceFormProps {
 
 export function ServiceForm({ initialData, onSubmit, open, onOpenChange }: ServiceFormProps) {
   const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<ServiceFormData>({
-    resolver: zodResolver(serviceSchema),
+    resolver: zodResolver(serviceSchema) as any,
     defaultValues: {
       name: initialData?.name || "",
       description: initialData?.description || "",

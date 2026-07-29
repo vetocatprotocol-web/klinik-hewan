@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/server/lib/prisma";
+import prisma from "@/server/lib/prisma";
 import { auth } from "@/server/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export default async function PrescriptionDetailPage({ params }: PrescriptionDet
   
   const { id } = await params;
   
-  const prescription = await prisma().prescription.findUnique({
+  const prescription = await prisma.prescription.findUnique({
     where: { id },
     include: {
       customer: true,

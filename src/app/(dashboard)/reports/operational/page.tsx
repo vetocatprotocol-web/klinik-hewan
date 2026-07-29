@@ -8,7 +8,7 @@ import {
   getHotelOccupancyReport,
   getDiagnosisBreakdownReport,
 } from "@/server/actions/reports";
-import { getSuppliers, getSupplierPerformance } from "@/server/queries/suppliers";
+import { listSuppliers, getSupplierPerformance } from "@/server/actions/suppliers";
 import { DataTable, type ColumnDef } from "@/components/data-table/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -125,9 +125,13 @@ export default function OperationalReportsPage() {
   const fetchSuppliers = useCallback(async () => {
     setLoading(true);
     try {
-      const allSuppliers = await getSuppliers({ page: 1, status: "ACTIVE" });
+      const result = await listSuppliers({ page: 1, status: "ACTIVE" });
+      const suppliers = result.data || [];
       const performances = await Promise.all(
-        allSuppliers.data.map((s: any) => getSupplierPerformance(s.id))
+        suppliers.map(async (s: any) => {
+          const perf = await getSupplierPerformance(s.id);
+          return perf.success ? perf.data : null;
+        })
       );
       setSupplierData(performances.filter(Boolean) as SupplierPerformanceData[]);
     } catch (error) {

@@ -114,7 +114,7 @@ describe("Stock Actions", () => {
 
       const result = await adjustStock(null, fd);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
 
     it("should return error when user is unauthorized", async () => {
@@ -130,7 +130,7 @@ describe("Stock Actions", () => {
 
       const result = await adjustStock(null, fd);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("FORBIDDEN");
+      expect((result as any).error?.code).toBe("FORBIDDEN");
     });
   });
 
@@ -161,8 +161,8 @@ describe("Stock Actions", () => {
 
       const result = await getLowStockAlerts();
       expect(result.success).toBe(true);
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("prod-1");
+      expect((result as any).data).toHaveLength(1);
+      expect((result as any).data[0].id).toBe("prod-1");
     });
 
     it("should return empty array when no low stock", async () => {
@@ -183,7 +183,7 @@ describe("Stock Actions", () => {
 
       const result = await getLowStockAlerts();
       expect(result.success).toBe(true);
-      expect(result.data).toHaveLength(0);
+      expect((result as any).data).toHaveLength(0);
     });
   });
 

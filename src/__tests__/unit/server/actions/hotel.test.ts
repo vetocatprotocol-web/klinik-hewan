@@ -103,7 +103,7 @@ describe("Hotel Actions", () => {
 
       const result = await createHotelBooking(null, fd);
       expect(result.success).toBe(true);
-      expect(result.data).toBe("booking-1");
+      expect((result as any).data).toBe("booking-1");
     });
 
     it("should return error when room is not available", async () => {
@@ -128,7 +128,7 @@ describe("Hotel Actions", () => {
 
       const result = await createHotelBooking(null, fd);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
 
     it("should return error when required fields are missing", async () => {
@@ -142,7 +142,7 @@ describe("Hotel Actions", () => {
 
       const result = await createHotelBooking(null, fd);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("VALIDATION");
+      expect((result as any).error?.code).toBe("VALIDATION");
     });
   });
 
@@ -179,7 +179,7 @@ describe("Hotel Actions", () => {
 
       const result = await checkInHotel("booking-1");
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
   });
 
@@ -216,7 +216,7 @@ describe("Hotel Actions", () => {
 
       const result = await checkOutHotel("booking-1");
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
   });
 });

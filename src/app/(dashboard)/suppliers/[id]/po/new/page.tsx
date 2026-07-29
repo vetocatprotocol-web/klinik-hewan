@@ -133,17 +133,13 @@ export default function SupplierPONewPage() {
 
     setLoading(true);
     try {
-      const result = await createPurchaseOrder(supplierId, {
-        items: items.map(i => ({
-          itemType: i.itemType,
-          productId: i.itemType === "PRODUCT" ? i.itemId : undefined,
-          drugId: i.itemType === "DRUG" ? i.itemId : undefined,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-        })),
-        requiredDate: requiredDate || undefined,
-        notes: notes || undefined,
-      });
+      const orderItems = items.map(i => ({
+        productId: i.itemType === "PRODUCT" ? i.itemId : undefined,
+        drugId: i.itemType === "DRUG" ? i.itemId : undefined,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+      }));
+      const result = await createPurchaseOrder(supplierId, orderItems, notes || undefined);
 
       if (result.success) {
         toast({ title: "PO berhasil dibuat" });

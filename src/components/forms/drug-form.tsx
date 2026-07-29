@@ -35,7 +35,7 @@ interface DrugFormProps {
 
 export function DrugForm({ initialData, onSubmit, open, onOpenChange, suppliers = [] }: DrugFormProps) {
   const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<DrugFormData>({
-    resolver: zodResolver(drugSchema),
+    resolver: zodResolver(drugSchema) as any,
     defaultValues: {
       name: initialData?.name || "",
       description: initialData?.description || "",

@@ -40,7 +40,7 @@ export function PetForm({ customerId, initialData, onSuccess, mode }: PetFormPro
   const [serverError, setServerError] = useState<string | null>(null);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<PetFormData>({
-    resolver: zodResolver(petSchema),
+    resolver: zodResolver(petSchema) as any,
     defaultValues: {
       name: initialData?.name || "",
       species: (initialData?.species as any) || "Anjing",

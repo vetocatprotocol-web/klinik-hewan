@@ -117,7 +117,7 @@ describe("Appointment Actions", () => {
 
       const result = await createAppointment(null, fd);
       expect(result.success).toBe(true);
-      expect(result.data).toBe("apt-1");
+      expect((result as any).data).toBe("apt-1");
     });
 
     it("should return error when slot is already booked", async () => {
@@ -162,7 +162,7 @@ describe("Appointment Actions", () => {
 
       const result = await createAppointment(null, fd);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
 
     it("should return error when user is unauthorized", async () => {
@@ -178,7 +178,7 @@ describe("Appointment Actions", () => {
 
       const result = await createAppointment(null, fd);
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("UNAUTHORIZED");
+      expect((result as any).error?.code).toBe("UNAUTHORIZED");
     });
   });
 
@@ -220,7 +220,7 @@ describe("Appointment Actions", () => {
 
       const result = await completeAppointment("apt-1");
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
   });
 
@@ -263,7 +263,7 @@ describe("Appointment Actions", () => {
 
       const result = await cancelAppointment("apt-1");
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("BUSINESS_RULE");
+      expect((result as any).error?.code).toBe("BUSINESS_RULE");
     });
   });
 
@@ -287,8 +287,8 @@ describe("Appointment Actions", () => {
 
       const result = await getAvailableSlots("doc-1", "2026-07-28");
       expect(result.success).toBe(true);
-      expect(result.data).toContain("09:30");
-      expect(result.data).not.toContain("09:00");
+      expect((result as any).data).toContain("09:30");
+      expect((result as any).data).not.toContain("09:00");
     });
 
     it("should return error when doctor has no schedule for the day", async () => {
@@ -300,7 +300,7 @@ describe("Appointment Actions", () => {
 
       const result = await getAvailableSlots("doc-1", "2026-07-28");
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("NOT_FOUND");
+      expect((result as any).error?.code).toBe("NOT_FOUND");
     });
   });
 });

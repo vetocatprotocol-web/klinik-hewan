@@ -30,7 +30,7 @@ export function HotelBookingForm({ customers, rooms, onSubmit, initialData, mode
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialData?.customerId || "");
   
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<HotelBookingFormData>({
-    resolver: zodResolver(hotelBookingSchema),
+    resolver: zodResolver(hotelBookingSchema) as any,
     defaultValues: {
       customerId: initialData?.customerId || "",
       petId: initialData?.petId || "",
@@ -77,7 +77,7 @@ export function HotelBookingForm({ customers, rooms, onSubmit, initialData, mode
               </div>
               <div className="space-y-2">
                 <Label>Hewan <span className="text-destructive">*</span></Label>
-                <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)} disabled={!selectedCustomerId}>
+                <Select value={watch("petId")} onValueChange={(v) => setValue("petId", v)}>
                   <SelectTrigger><SelectValue placeholder="Pilih hewan" /></SelectTrigger>
                   <SelectContent>
                     {selectedCustomer?.pets.map((p) => (
