@@ -33,7 +33,7 @@ export async function forgotPassword(
 
   // Generate secure token
   const token = crypto.randomUUID();
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hour expiry per PRD §14.3
+  const expires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour expiry per PRD §8.1.1
 
   // Store token in database
   await client.user.update({
@@ -67,7 +67,7 @@ export async function forgotPassword(
                 Reset Password
               </a>
             </div>
-            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">Link ini akan kedaluwarsa dalam 24 jam.</p>
+            <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">Link ini akan kedaluwarsa dalam 1 jam.</p>
             <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">Jika Anda tidak meminta reset password, abaikan email ini. Password Anda tidak akan berubah.</p>
           </div>
           <div style="background: #f3f4f6; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">

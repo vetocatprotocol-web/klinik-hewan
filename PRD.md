@@ -144,6 +144,16 @@ No additional technologies beyond this list are permitted without explicit justi
 - Mobile app (iOS/Android)
 - Multi-language support
 - Staff payroll management
+- Single Sign-On (SSO) integration
+- Advanced scheduling (multi-day treatments, follow-ups)
+- Veterinary library (breed info, condition database)
+- Pet food/diet recommendations
+- Vaccination certificate generation
+- Performance analytics (staff KPIs)
+- Online booking & payment portal (separate from customer portal)
+- CRM features (customer retention)
+- API for third-party integrations
+- Advanced data analytics (predictive models)
 
 ---
 
@@ -333,6 +343,7 @@ const ROLE_ROUTES: Record<UserRole, string[]> = {
 - OWNER/DOKTER manages doctor schedules (day of week, start/end time, slot duration, max slots)
 - Schedule stored in DoctorSchedule model
 - DOKTER can manage own availability
+- Doctor schedule optimization (maximize slot utilization)
 
 #### 8.3.2 Appointment Booking
 - CUSTOMER books via portal: select pet, doctor (or "any available"), date & time from available slots, add notes
@@ -672,7 +683,7 @@ const ROLE_ROUTES: Record<UserRole, string[]> = {
 - Prescriptions: view details, download/print PDF
 - Invoices & Payments: view list, pay full or partial, download PDF
 - Hotel Bookings: view available rooms, create/manage bookings
-- Profile: edit info, change password, notification preferences
+- Profile: edit info (name, phone, email, address, city, postal code, alternative contact/emergency), change password, notification preferences, communication history
 
 #### 8.14.3 Customer Permissions
 ```
@@ -998,7 +1009,7 @@ Constraints: payment_number unique, amount > 0
 #### ServiceChangeRequest / DrugChangeRequest / ProductChangeRequest
 ```
 Purpose: Price change approval workflow
-Fields: itemId, requestedBy, oldPrice, newPrice, reason, status (PENDING/APPROVED/REJECTED), approvedBy, requestedAt, approvedAt
+Fields: serviceId/drugId productId, requestedBy, oldPrice, newPrice, reason, status (PENDING/APPROVED/REJECTED), approvedBy, requestedAt, approvedAt
 ```
 
 #### DiscountLog
@@ -1028,7 +1039,7 @@ Fields: date, kasirId, totalPOS, totalInvoice, totalPayments, expectedCash, actu
 #### HotelBooking
 ```
 Purpose: Hotel room booking
-Fields: bookingNumber, customerId, petId, roomId, checkInDate, checkOutDate, dailyRate, totalDays, subtotal, serviceFee, discountAmount, total, status (CONFIRMED/CHECKED_IN/CHECKED_OUT/CANCELLED), notes, createdBy
+Fields: bookingNumber, customerId, petId, roomId, checkInDate, checkOutDate, dailyRate, totalDays, subtotal, serviceFee, discountAmount, total, status (CONFIRMED/CHECKED_IN/CHECKED_OUT/CANCELLED), notes, createdBy, createdAt
 ```
 
 #### HotelBookingService
@@ -1046,13 +1057,13 @@ Fields: roomNumber, name, type, capacity, amenities, dailyRate, currentOccupancy
 #### Supplier
 ```
 Purpose: Supplier master data
-Fields: name, phone, email, address, city, postalCode, contactPerson, paymentTerms, specialization, status (ACTIVE/INACTIVE/BLACKLIST), verifiedBy, verifiedAt, createdBy
+Fields: name, phone, email, address, city, postalCode, contactPerson, paymentTerms, specialization, status (ACTIVE/INACTIVE/BLACKLIST), verifiedBy, verifiedAt, createdBy, createdAt
 ```
 
 #### PurchaseOrder
 ```
 Purpose: Purchase order to supplier
-Fields: poNumber, supplierId, orderDate, requiredDate, status (PENDING/PARTIAL_RECEIVED/RECEIVED/CANCELLED), totalAmount, notes, createdBy
+Fields: poNumber, supplierId, orderDate, requiredDate, status (PENDING/PARTIAL_RECEIVED/RECEIVED/CANCELLED), totalAmount, notes, createdBy, createdAt
 ```
 
 #### PurchaseOrderItem
@@ -1064,7 +1075,7 @@ Fields: poId, productId, drugId, quantity, unitPrice, receivedQuantity, received
 #### GoodsReceipt
 ```
 Purpose: Goods received note
-Fields: grNumber, poId, receivedDate, createdBy, notes
+Fields: grNumber, poId, receivedDate, createdBy, notes, createdAt
 ```
 
 #### AuditLog
@@ -1211,9 +1222,18 @@ STEP 3: OWNER REVIEWS & APPROVES
 
 STEP 4: ONGOING MONITORING
 ├─ OWNER views price change history report
+├─ Daily price variance report (if unusual changes)
 ├─ Margin analysis (target vs actual)
 ├─ Anomaly alerts (prices changed outside normal range)
 └─ Full transparency on who changed what & why
+
+PREVENTION AGAINST FRAUD:
+✅ KASIR cannot change prices directly
+✅ All changes require OWNER approval
+✅ Full audit trail (who suggested, when, why)
+✅ Impact analysis (how many invoices affected)
+✅ Approval chain (documented decision)
+✅ Immutable history (cannot modify later)
 ```
 
 ### 11.3 Discount Control Workflow (Fraud Prevention)
@@ -1243,35 +1263,99 @@ STEP 3: OWNER REVIEWS (Large Discounts)
 └─ Decision logged
 
 STEP 4: FRAUD DETECTION & REPORTING
-├─ Daily discount report (by KASIR, by customer, by reason)
-├─ Alerts for unusual patterns
-└─ OWNER investigation tools
+├─ Daily discount report:
+│  ├─ Total discount amount (% of revenue)
+│  ├─ By KASIR (who applies most discount?)
+│  ├─ By customer (who gets most discount? - friends/family?)
+│  ├─ By reason (legitimate vs suspicious)
+│  └─ Unusual patterns (KASIR apply huge discounts to specific customers)
+├─ Alerts for:
+│  ├─ Total discount > 10% of revenue (warning)
+│  ├─ Same KASIR apply discount > normal (check for friends)
+│  ├─ Specific customer always get discount (preferential treatment)
+│  └─ Discount amount not matching reason
+└─ OWNER investigation tools (filter, drill-down)
+
+PREVENTION AGAINST FRAUD:
+✅ Small discounts auto-approved (no delay)
+✅ Large discounts require OWNER approval
+✅ All discounts logged & immutable
+✅ Full transparency (who, what, why, when)
+✅ Pattern analysis (detect suspicious behavior)
+✅ Accountability (audit trail clear)
 ```
 
 ### 11.4 Daily Reconciliation Workflow (Financial Control)
 
 ```
 STEP 1: END OF DAY - KASIR SUBMITS
-├─ KASIR gathers all transactions (POS, invoices, discounts, tax)
-├─ KASIR counts physical cash
-├─ KASIR verifies card/transfer payments
-├─ KASIR submits DAILY_RECONCILIATION
+├─ KASIR gathers all day's transactions:
+│  ├─ POS sales (total from receipt counter)
+│  ├─ Invoice payments (total from payment records)
+│  ├─ Discount applied (total)
+│  └─ Tax collected (if applicable)
+├─ KASIR count physical cash
+├─ KASIR verify card/transfer payments (match to bank)
+├─ KASIR submits DAILY_RECONCILIATION:
+│  ├─ Expected POS: Rp 8,200,000 (auto from system)
+│  ├─ Actual POS: Rp 8,200,000 (KASIR input)
+│  ├─ Expected Cash: Rp 5,100,000
+│  ├─ Actual Cash: Rp 5,100,000 (KASIR count)
+│  ├─ Expected Card: Rp 3,100,000
+│  ├─ Actual Card: Rp 3,100,000 (from CC processor)
+│  ├─ Notes: "Good match, no discrepancies"
+│  └─ Submit (status: PENDING)
 └─ Day locked (transactions become immutable)
 
 STEP 2: OWNER REVIEWS (Next Day)
-├─ OWNER checks for discrepancies
-├─ OWNER options: APPROVE / REQUEST REVISION
+├─ OWNER views pending reconciliations
+├─ OWNER checks for:
+│  ├─ No discrepancies (balanced)
+│  ├─ Cash variance (actual vs expected)
+│  ├─ Payment method breakdown correct
+│  ├─ Discount tracked
+│  └─ Notes adequate (if discrepancies)
+├─ OWNER options:
+│  ├─ APPROVE (day is finalized, transactions locked)
+│  └─ REQUEST REVISION (if issues, send back to KASIR)
 └─ Decision logged with timestamp
 
 STEP 3: DISCREPANCY HANDLING
-├─ Minor (Rp 50k): document, track pattern, approve
-├─ Major (> Rp 500k): investigate, re-count, resubmit
-└─ Cannot reconcile: escalate, investigate possible fraud
+├─ If cash over/short (minor discrepancy Rp 50k):
+│  ├─ Document the variance
+│  ├─ Track pattern (normal cash handling error)
+│  ├─ OWNER approves anyway
+│  └─ Include in monthly variance report
+├─ If major discrepancy (> Rp 500k):
+│  ├─ OWNER requests revision (investigate)
+│  ├─ KASIR re-count cash
+│  ├─ Check POS receipts (match to system)
+│  ├─ Check payment records (verify)
+│  ├─ Document findings
+│  └─ Resubmit with explanation
+└─ If cannot reconcile:
+   ├─ Escalate to OWNER for manual review
+   ├─ Investigate possible theft/fraud
+   ├─ Check CCTV if available
+   └─ Audit trail pulled for investigation
 
 STEP 4: HISTORICAL TRACKING
 ├─ All reconciliations stored (cannot delete)
-├─ Monthly variance analysis
-└─ Compliance reporting
+├─ Monthly variance analysis:
+│  ├─ Which days had discrepancies
+│  ├─ Which KASIR had most variance
+│  ├─ Patterns detected (if KASIR A always short by Rp 100k?)
+│  └─ Corrective actions taken
+└─ Compliance reporting (for auditor/regulatory)
+
+PREVENTION AGAINST FRAUD:
+✅ All transactions locked after reconciliation approval
+✅ Cannot modify transactions after reconciliation
+✅ Cash physically counted (not estimated)
+✅ Multiple payment methods verified (card processor, bank)
+✅ Full transparency (who reconciled, when, discrepancies noted)
+✅ Pattern detection (suspicious recurring discrepancies)
+✅ Accountability (KASIR & OWNER both accountable)
 ```
 
 ---
@@ -1332,6 +1416,40 @@ Button, Card, Dialog, AlertDialog, DropdownMenu, Input, Select, Textarea, Form, 
 | Desktop (1024px+) | Visible, collapsible | Side-by-side | Full width |
 | Tablet (640-1023px) | Collapsed to icons | Stacked | Full width |
 | Mobile (<640px) | Hidden, hamburger | Stacked, full-width | Full width |
+
+### 12.5 Cross-System UI Features
+
+- **Sidebar Collapsible** — Internal dashboards (OWNER, DOKTER, KASIR)
+- **Mobile Navigation** — Hamburger menu, responsive design
+- **Theme Toggle** — Dark/light mode available
+- **Notification Bell** — Real-time alerts in navbar
+- **Role-Based Sidebar** — Different menu items per role
+- **Responsive Design** — Grid responsif (1/2/3/4 columns)
+- **Loading States** — Skeleton loading for all pages
+- **Empty States** — Placeholder with icon and message
+- **Status Badges** — Colored badges per status
+- **Breadcrumbs** — Navigation context
+- **Search Bars** — Quick search for navigation
+
+### 12.6 Data Tables
+
+- **Server-side Pagination** — 20 items per page (configurable)
+- **Search** — Full-text search (name, email, ID)
+- **Filter** — Multi-filter (status, date range, category)
+- **Sort** — Click column header ascending/descending
+- **Column Actions** — Edit, delete, view detail per row
+- **Bulk Actions** — Select multiple, bulk delete/archive
+- **Export** — Export to CSV/PDF/Excel
+- **Column Customization** — Show/hide columns (future enhancement)
+
+### 12.7 Print & PDF
+
+- **Visit Report** — `/visits/[id]/print` (medical details)
+- **Invoice** — `/invoices/[id]/print` (payment details, terms)
+- **Prescription** — `/prescriptions/[id]/print` (drugs, dosage, instructions)
+- **POS Receipt** — Dialog receipt with print button
+- **Hotel Invoice** — Hotel charges breakdown
+- **Reports** — All reports printable & exportable
 
 ---
 
@@ -1872,6 +1990,7 @@ Every Server Action follows this structure:
 | completeAppointment | id | DOKTER | Linked visit must exist |
 | markNoShow | id, reason | DOKTER | Logged for tracking |
 | getAvailableSlots | doctorId, date | Authenticated | Returns open time slots |
+| getDoctorSchedule | doctorId | Authenticated | Weekly schedule |
 
 #### Visit Actions
 | Action | Input | Authorization | Business Rules |
@@ -1881,6 +2000,7 @@ Every Server Action follows this structure:
 | addVisitItem | visitId, itemType, itemId, quantity | DOKTER (own, DRAFT only) | Only DRAFT |
 | removeVisitItem | visitId, itemId | DOKTER (own, DRAFT only) | Only DRAFT |
 | completeVisit | id | DOKTER (own, DRAFT only) | Auto-generate invoice + prescription |
+| cancelVisit | id, reason | DOKTER (own, DRAFT only) | Logged for tracking |
 
 #### Prescription Actions
 | Action | Input | Authorization | Business Rules |
@@ -1906,20 +2026,29 @@ Every Server Action follows this structure:
 | removePosItem | orderId, itemId | KASIR | Before checkout only |
 | applyDiscount | orderId, discountAmount, reason | KASIR | Approval workflow if > threshold |
 | checkoutPos | orderId, paymentMethod, paymentAmount | KASIR | Payment >= total, stock deducted |
+| cancelPosTransaction | orderId, reason | KASIR | Void with reason |
 
 #### Invoice Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
 | createInvoice | sourceType, sourceId | System (auto) | From visit/billing/POS |
 | getInvoice | id | OWNER, KASIR, CUSTOMER (own) | Read-only |
+| listInvoices | filters, pagination | OWNER, KASIR | Filterable |
+| recordPartialPayment | invoiceId, amount, paymentMethod | KASIR | Amount <= remaining |
 | downloadInvoicePdf | id | OWNER, KASIR, CUSTOMER (own) | Generate PDF on demand |
+| printInvoice | id | OWNER, KASIR | Print view |
 | emailInvoice | id | OWNER, KASIR | Send via Resend |
+| exportInvoices | filters, format | OWNER, KASIR | CSV/PDF/Excel |
 
 #### Payment Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
 | processPayment | invoiceId, paymentMethod, amount | KASIR | Amount >= remaining balance |
+| recordPayment | paymentNumber, invoiceId, amount, method | KASIR | Record payment |
+| getPaymentHistory | invoiceId | Authenticated | Payment records |
+| listPayments | filters, pagination | OWNER, KASIR | Filterable |
 | voidPayment | id, reason | OWNER | Extraordinary cases only |
+| printReceipt | paymentId | KASIR | Print receipt |
 
 #### Master Data Actions (OWNER Only)
 | Action | Input | Authorization | Business Rules |
@@ -1927,12 +2056,15 @@ Every Server Action follows this structure:
 | createService | name, description, category, price, cost | OWNER | Name unique, price >= 0 |
 | updateService | id, fields... | OWNER | Price change affects new visits only |
 | archiveService | id | OWNER | Soft delete |
+| getServiceChangeHistory | serviceId | OWNER | Version history |
 | createDrug | name, description, unit, pricePerUnit, costPerUnit, minimumStock | OWNER | Name unique, unit immutable |
 | updateDrug | id, fields... (except unit) | OWNER | Unit cannot change |
 | archiveDrug | id | OWNER | Soft delete |
+| getDrugChangeHistory | drugId | OWNER | Version history |
 | createProduct | name, categoryId, price, cost, description?, image?, barcode?, reorderPoint? | OWNER | Name unique |
 | updateProduct | id, fields... | OWNER | -- |
 | archiveProduct | id | OWNER | Soft delete |
+| getProductChangeHistory | productId | OWNER | Version history |
 | createProductCategory | name, description?, defaultMargin? | OWNER | Name unique |
 | updateProductCategory | id, name?, description? | OWNER | -- |
 | archiveProductCategory | id | OWNER | Cannot archive with active products |
@@ -1940,9 +2072,14 @@ Every Server Action follows this structure:
 #### Stock Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
+| getInventory | -- | Authenticated | All products with stock |
 | adjustStock | productId, quantity, reason, notes? | KASIR (with approval if > threshold), OWNER (direct) | Creates StockAdjustment record |
+| getStockHistory | productId, dateRange | Authenticated | Movement history |
+| getStockAdjustmentRequests | -- | OWNER | Pending approvals |
 | approveStockAdjustment | id, notes? | OWNER | Approval workflow |
 | rejectStockAdjustment | id, reason? | OWNER | Reject with reason |
+| getLowStockAlerts | -- | Authenticated | Products below reorder point |
+| recordStockOpname | products, physicalCounts | KASIR, OWNER | Physical count reconciliation |
 
 #### Price Suggestion Actions
 | Action | Input | Authorization | Business Rules |
@@ -1950,18 +2087,25 @@ Every Server Action follows this structure:
 | suggestServicePriceChange | serviceId, newPrice, reason | KASIR | Creates ServiceChangeRequest |
 | suggestDrugPriceChange | drugId, newPrice, reason | KASIR | Creates DrugChangeRequest |
 | suggestProductPriceChange | productId, newPrice, reason | KASIR | Creates ProductChangeRequest |
+| getPriceChangeRequests | filters | OWNER | All pending requests |
+| getPriceChangeHistory | productId, dateRange | Authenticated | Change history |
+| getPriceChangeImpactAnalysis | changeRequestId | OWNER | # invoices affected |
 
 #### Approval Actions (OWNER Only)
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
+| getPendingApprovals | -- | OWNER | All pending requests |
 | approvePriceChange | changeRequestId, notes | OWNER | Price updated, logged |
 | rejectPriceChange | changeRequestId, notes | OWNER | Rejected with reason |
 | approveDiscount | discountId, notes | OWNER | Discount finalized |
 | rejectDiscount | discountId, notes | OWNER | Discount reversed |
+| approveStockAdjustment | adjustmentId, notes | OWNER | Stock updated |
+| rejectStockAdjustment | adjustmentId, notes | OWNER | Rejected with reason |
 | approveSupplier | supplierId, notes | OWNER | Supplier activated |
 | rejectSupplier | supplierId, notes | OWNER | Supplier rejected |
 | approveReconciliation | reconciliationId, notes | OWNER | Day locked |
 | requestReconciliationRevision | reconciliationId, notes | OWNER | Sent back to KASIR |
+| getApprovalHistory | filters | OWNER | All approval records |
 
 #### Hotel Actions
 | Action | Input | Authorization | Business Rules |
@@ -1973,43 +2117,60 @@ Every Server Action follows this structure:
 | checkInHotel | id | KASIR | Status → CHECKED_IN |
 | checkOutHotel | id | KASIR | Status → CHECKED_OUT, generate invoice |
 | addBookingService | bookingId, serviceType, quantity | KASIR | Only while CHECKED_IN |
+| getHotelOccupancy | dateRange | Authenticated | Occupancy stats |
+| getHotelRevenue | dateRange | Authenticated | Revenue stats |
+| printHotelInvoice | bookingId | Authenticated | Generate PDF |
 
 #### Supplier Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
 | createSupplier | supplierData | KASIR (suggest), OWNER (approve) | Requires OWNER approval |
 | updateSupplier | id, data | OWNER | -- |
+| listSuppliers | filters | Authenticated | Filterable by status, specialization |
+| getSupplierPerformance | supplierId | Authenticated | On-time, quality metrics |
 | createPurchaseOrder | supplierId, items[] | KASIR | Budget threshold check |
 | approvePurchaseOrder | poId | OWNER (if > threshold) | Auto-approve if < threshold |
 | recordGoodsReceipt | poId, items[] | KASIR | Auto-update stock |
+| getCancelledPoHistory | -- | Authenticated | Cancelled PO records |
 
 #### Reconciliation Actions
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
 | submitDailyReconciliation | date, kasirData | KASIR | End-of-day close |
+| getPendingReconciliations | -- | OWNER | Pending reviews |
+| getDailyReconciliation | date | Authenticated | Single day record |
 | approveReconciliation | id | OWNER | Day locked |
 | requestReconciliationRevision | id, notes | OWNER | Sent back to KASIR |
+| getReconciliationHistory | dateRange | Authenticated | Historical records |
+| getReconciliationReport | dateRange | Authenticated | Summary report |
 
 #### User Actions (OWNER Only)
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
 | createUser | name, email, phone?, role, password | OWNER | Email unique |
 | updateUser | id, fields... | OWNER | -- |
+| updateUserRole | id, roleId | OWNER | Role must exist |
 | deactivateUser | id | OWNER | Cannot disable self |
 | reactivateUser | id | OWNER | -- |
 | resetUserPassword | id | OWNER | Generate temp password, send email |
+| changePassword | userId, oldPassword, newPassword | Authenticated | Password rules enforced |
+| getUserActivity | userId | OWNER | Login history, actions |
 | lockUser | id, duration | OWNER | Account lockout |
 | unlockUser | id | OWNER | -- |
+| getFailedLoginAttempts | userId | OWNER | Security audit |
 
 #### Settings Actions (OWNER Only)
 | Action | Input | Authorization | Business Rules |
 |---|---|---|---|
+| getSettings | key | OWNER | Fetch current settings |
 | updateCompanyInfo | data | OWNER | -- |
 | updateTaxConfig | active, type, value | OWNER | -- |
 | updatePaymentMethods | methods[] | OWNER | At least 1 active (Cash) |
 | updateNumberingFormat | format[] | OWNER | -- |
 | updateHotelRates | rates[] | OWNER | -- |
 | updateFraudPolicies | policies | OWNER | -- |
+| getSettingChangeHistory | key | OWNER | Version history |
+| revertSetting | key, version | OWNER | Revert to previous |
 
 #### Report Actions
 | Action | Input | Authorization | Business Rules |
@@ -2018,10 +2179,14 @@ Every Server Action follows this structure:
 | getRevenueByMethodReport | dateRange | OWNER, KASIR | -- |
 | getRevenueByServiceReport | dateRange | OWNER, KASIR | -- |
 | getInventoryReport | dateRange | OWNER, KASIR | -- |
+| getInventoryTurnoverReport | dateRange | OWNER, KASIR | FIFO/weighted avg |
 | getReceivablesAgingReport | -- | OWNER, KASIR | -- |
+| getCollectionRateReport | dateRange | OWNER, KASIR | -- |
 | getVisitStatisticsReport | dateRange | OWNER, DOKTER | -- |
 | getDiagnosisBreakdownReport | dateRange | OWNER, DOKTER | -- |
+| getVaccinationReport | dateRange | OWNER, DOKTER | -- |
 | getHotelOccupancyReport | dateRange | OWNER, KASIR | -- |
+| getSupplierPerformanceReport | dateRange | OWNER, KASIR | -- |
 | getDiscountReport | dateRange | OWNER | -- |
 | getPriceChangeReport | dateRange | OWNER | -- |
 | getStockAdjustmentReport | dateRange | OWNER | -- |
@@ -2033,6 +2198,8 @@ Every Server Action follows this structure:
 | getAuditLogs | filters, pagination | OWNER | Filterable by user, action, entity, date |
 | getAuditTrailForEntity | entityType, entityId | OWNER | Full change history |
 | getUserActivity | userId, dateRange | OWNER | Login history, actions |
+| searchAuditLogs | keywords, filters | OWNER | Full-text search |
+| getAnomalyReport | -- | OWNER | Suspicious activities |
 | exportAuditLogs | filters, format | OWNER | CSV/PDF/Excel |
 
 #### Notification Actions
@@ -2052,6 +2219,34 @@ Every Server Action follows this structure:
 | /api/notifications/[id]/read | POST | Mark notification as read |
 | /api/notifications/mark-all-read | POST | Mark all as read |
 | /api/cron/cleanup | GET | Cleanup job (old temp files, lock reconciliations) |
+
+### 15.5 Query Functions (Fetch Operations for Client Components)
+
+```
+fetchUser(userId)
+fetchCustomer(customerId)
+fetchPet(petId)
+fetchVisit(visitId)
+fetchAppointment(appointmentId)
+fetchInvoice(invoiceId)
+fetchPrescription(prescriptionId)
+fetchService(serviceId)
+fetchDrug(drugId)
+fetchProduct(productId)
+fetchSupplier(supplierId)
+fetchHotelBooking(bookingId)
+fetchHotelRoom(roomId)
+listVisits(filters, pagination)
+listAppointments(filters, pagination)
+listInvoices(filters, pagination)
+listPrescriptions(filters, pagination)
+listServices(filters)
+listDrugs(filters)
+listProducts(filters, pagination)
+listSuppliers(filters)
+listHotelBookings(filters, pagination)
+getAllNotifications(userId, limit)
+```
 
 ---
 
@@ -2165,6 +2360,9 @@ type ActionResult<T> = {
 - Older records archived (not deleted)
 - OWNER can view audit logs for any entity
 - Immutable (cannot modify or delete)
+- Export compliance — Full audit trail exportable for auditors
+- Access logs — Track who accessed what data & when
+- Failed attempts — Login failures, permission denied attempts tracked
 
 ---
 
@@ -2207,14 +2405,18 @@ type ActionResult<T> = {
 - Chart Data: cached 30 seconds
 - Master Data: cached 5 minutes
 - Server-side Cache via `cached()` from `server/lib/cache.ts`
+- Query Optimization — Indexed fields for fast lookup
+- Lazy Loading — Components load on-demand
 
 ### 20.4 Targets
-- Initial page load: < 2 seconds
+- Initial page load: < 3 seconds
 - Navigation: < 1 second
 - Search response: < 1 second (10k+ records)
+- Report generation: < 10 seconds (full month)
 - API response: < 500ms (95th percentile)
 - Database query: < 100ms (average)
 - Concurrent users: 100+ without degradation
+- Uptime: 99.5% (excluding scheduled maintenance)
 
 ---
 
@@ -2235,9 +2437,9 @@ type ActionResult<T> = {
 - No sensitive data exposed to unauthorized roles
 
 ### 21.3 Rate Limiting
-- Login attempts: 5 per 15 minutes per IP
+- Auth: 10 requests per 15 minutes per IP
+- Upload: 10 requests per minute per user
 - API routes: 100 requests per minute per IP
-- File uploads: 10 per minute per user
 
 ### 21.4 Data Protection
 - All database queries via Prisma (parameterized, no SQL injection)
@@ -2704,7 +2906,66 @@ KEY CONCEPTS:
 - Reconciliation: Daily close process (cash count, payment verification)
 - Immutable: Cannot modify or delete once locked (compliance, audit)
 - Fraud Prevention: Multi-layered controls (approval, audit, anomaly detection)
+
+ABBREVIATIONS:
+- OWNER: O
+- DOKTER: D
+- KASIR: K
+- CUSTOMER: C
+- RBAC: Role-Based Access Control
+- JWT: JSON Web Token
+- ORM: Object-Relational Mapping
+- POS: Point of Sale
+- CSV: Comma-Separated Values
+- PDF: Portable Document Format
+- SMS: Short Message Service
+- IP: Internet Protocol
+- API: Application Programming Interface
+- CRON: Time-based job scheduler
+- FIFO: First-In-First-Out (inventory method)
 ```
+
+---
+
+## 30. KNOWN LIMITATIONS
+
+- Single timezone support (not multi-timezone)
+- Currency support (IDR only, but framework supports multi-currency)
+- Backup interval (daily, not real-time sync)
+- Concurrent user limit (tested up to 100 concurrent)
+- File upload size (5MB max per file)
+- Historical data retention (keeps all, no archival)
+- No soft-delete for audit logs (permanent immutable record)
+- Email delivery (depends on SMTP configuration)
+
+---
+
+## 31. DEPLOYMENT CHECKLIST
+
+### Before Going Live
+- [ ] Database backed up
+- [ ] All migrations tested on staging
+- [ ] All tests passing (unit, integration, security)
+- [ ] Security audit completed
+- [ ] Performance testing done (load test)
+- [ ] Audit logs verified (completeness)
+- [ ] All role permissions verified (4 roles only)
+- [ ] Documentation completed
+- [ ] User training completed
+- [ ] Rollback plan documented
+- [ ] Monitoring setup (error tracking, performance)
+- [ ] Backup & recovery tested
+- [ ] Legal/compliance review done
+- [ ] Go-live approval from OWNER
+
+### Post-Deployment
+- [ ] Monitor for errors (first 24 hours)
+- [ ] Check performance metrics
+- [ ] Verify all audit logs working
+- [ ] Spot-check approval workflows
+- [ ] Confirm users can access correct data
+- [ ] Test edge cases (large transactions, many items)
+- [ ] Gather feedback from users
 
 ---
 
