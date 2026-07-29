@@ -5,7 +5,6 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
   globalIgnores([
     ".next/**",
     "out/**",
@@ -16,6 +15,17 @@ const eslintConfig = defineConfig([
     "prisma/**",
     ".kilo/**",
   ]),
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unsafe-function-type": "warn",
+      "@typescript-eslint/no-empty-object-type": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/incompatible-library": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
+      "react-hooks/immutability": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;

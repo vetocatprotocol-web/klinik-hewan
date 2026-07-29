@@ -8,12 +8,12 @@ import { createAuditLog } from "../lib/audit";
 import bcrypt from "bcryptjs";
 
 export async function createUser(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -62,12 +62,12 @@ export async function createUser(
 
 export async function updateUser(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -112,7 +112,7 @@ export async function updateUser(
 export async function disableUser(id: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -139,7 +139,7 @@ export async function disableUser(id: string): Promise<ActionResult> {
 export async function enableUser(id: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -162,7 +162,7 @@ export async function enableUser(id: string): Promise<ActionResult> {
 export async function resetUserPassword(id: string): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -217,7 +217,7 @@ export async function changePassword(
 export async function updateUserRole(userId: string, roleId: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -244,10 +244,11 @@ export async function updateUserRole(userId: string, roleId: string): Promise<Ac
   return { success: true, data: undefined };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getUserActivity(userId: string): Promise<ActionResult<any[]>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -262,7 +263,7 @@ export async function getUserActivity(userId: string): Promise<ActionResult<any[
 export async function lockUser(userId: string, durationMinutes: number): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -296,7 +297,7 @@ export async function lockUser(userId: string, durationMinutes: number): Promise
 export async function unlockUser(userId: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -321,10 +322,11 @@ export async function unlockUser(userId: string): Promise<ActionResult> {
   return { success: true, data: undefined };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getFailedLoginAttempts(userId: string): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 

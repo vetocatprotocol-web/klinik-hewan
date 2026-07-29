@@ -46,3 +46,15 @@ export function toNumber(val: number | Decimal | DecimalLike | null | undefined)
   if (typeof val === "number") return val;
   return parseFloat(String(val));
 }
+
+export type SessionPayload = { id: string; role: string; name?: string; email?: string };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface PendingApprovalsData {
+  serviceChanges: any[];
+  drugChanges: any[];
+  productChanges: any[];
+  stockApprovals: any[];
+  discountLogs: any[];
+  supplierChanges: any[];
+}

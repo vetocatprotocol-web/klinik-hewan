@@ -7,9 +7,10 @@ import { ActionResult } from "@/types";
 import { generateVisitNumber, generateInvoiceNumber, generatePrescriptionNumber } from "@/lib/utils";
 import { createAuditLog } from "../lib/audit";
 import { createNotification } from "../lib/notifications";
+import { Prisma } from "@prisma/client";
 
 export async function createVisit(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -18,7 +19,7 @@ export async function createVisit(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "DOKTER") {
     return { success: false, error: { message: "Hanya Dokter yang bisa membuat kunjungan", code: "FORBIDDEN" } };
   }
@@ -83,8 +84,8 @@ export async function createVisit(
   }
 
   // Get prices from master data
-  const serviceIds = services.map((s: any) => s.serviceId);
-  const drugIds = drugs.map((d: any) => d.drugId);
+  const serviceIds = services.map((s: { serviceId: string }) => s.serviceId);
+  const drugIds = drugs.map((d: { drugId: string }) => d.drugId);
 
   const [masterServices, masterDrugs] = await Promise.all([
     client.service.findMany({ where: { id: { in: serviceIds }, status: "ACTIVE" } }),
@@ -114,20 +115,20 @@ export async function createVisit(
       status: "DRAFT",
       visitItems: {
         create: [
-          ...services.map((s: any) => {
+          ...services.map((s: { serviceId: string; quantity: number }) => {
             const master = serviceMap.get(s.serviceId);
             return {
-              itemType: "SERVICE",
+              itemType: "SERVICE" as const,
               serviceId: s.serviceId,
               quantity: s.quantity,
               unitPrice: Number(master?.price || 0),
               subtotal: Number(master?.price || 0) * s.quantity,
             };
           }),
-          ...drugs.map((d: any) => {
+          ...drugs.map((d: { drugId: string; quantity: number; dosage?: string; durationDays?: number; instructions?: string }) => {
             const master = drugMap.get(d.drugId);
             return {
-              itemType: "DRUG",
+              itemType: "DRUG" as const,
               drugId: d.drugId,
               quantity: d.quantity,
               unitPrice: Number(master?.pricePerUnit || 0),
@@ -160,7 +161,7 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) {
     return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa menyelesaikan kunjungan", code: "FORBIDDEN" } };
   }
@@ -193,7 +194,7 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
 
   // Get tax config
   const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
-  const taxConfig = taxSetting?.value as any;
+  const taxConfig = taxSetting?.value as { enabled: boolean; type: string; value: number };
   let taxAmount = 0;
   if (taxConfig?.enabled) {
     if (taxConfig.type === "PERCENTAGE") {
@@ -346,7 +347,7 @@ export async function completeVisit(id: string): Promise<ActionResult<string>> {
 
 export async function updateVisit(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -355,7 +356,7 @@ export async function updateVisit(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) {
     return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa mengubah kunjungan", code: "FORBIDDEN" } };
   }
@@ -405,8 +406,8 @@ export async function updateVisit(
     };
   }
 
-  const serviceIds = services.map((s: any) => s.serviceId);
-  const drugIds = drugs.map((d: any) => d.drugId);
+  const serviceIds = services.map((s: { serviceId: string }) => s.serviceId);
+  const drugIds = drugs.map((d: { drugId: string }) => d.drugId);
 
   const [masterServices, masterDrugs] = await Promise.all([
     client.service.findMany({ where: { id: { in: serviceIds }, status: "ACTIVE" } }),
@@ -433,20 +434,20 @@ export async function updateVisit(
       heartRate: data.heartRate,
       visitItems: {
         create: [
-          ...services.map((s: any) => {
+          ...services.map((s: { serviceId: string; quantity: number }) => {
             const master = serviceMap.get(s.serviceId);
             return {
-              itemType: "SERVICE",
+              itemType: "SERVICE" as const,
               serviceId: s.serviceId,
               quantity: s.quantity,
               unitPrice: Number(master?.price || 0),
               subtotal: Number(master?.price || 0) * s.quantity,
             };
           }),
-          ...drugs.map((d: any) => {
+          ...drugs.map((d: { drugId: string; quantity: number; dosage?: string; durationDays?: number; instructions?: string }) => {
             const master = drugMap.get(d.drugId);
             return {
-              itemType: "DRUG",
+              itemType: "DRUG" as const,
               drugId: d.drugId,
               quantity: d.quantity,
               unitPrice: Number(master?.pricePerUnit || 0),
@@ -483,7 +484,7 @@ export async function addVisitItem(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -544,7 +545,7 @@ export async function removeVisitItem(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -586,7 +587,7 @@ export async function cancelVisit(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa membatalkan kunjungan", code: "FORBIDDEN" } };
   }
@@ -607,7 +608,7 @@ export async function cancelVisit(
   await client.visit.update({
     where: { id: visitId },
     data: {
-      status: "CANCELLED" as any,
+      status: "CANCELLED" as Prisma.EnumVisitStatusFieldUpdateOperationsInput["set"],
       treatmentNotes: reason,
     },
   });
@@ -633,7 +634,7 @@ export async function downloadVisitNotesPdf(visitId: string): Promise<ActionResu
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }

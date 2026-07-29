@@ -30,7 +30,7 @@ export function PortalHotelBookingForm({ customerId, pets, rooms }: PortalHotelB
   const [checkInDate, setCheckInDate] = useState("");
   const [checkOutDate, setCheckOutDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [availableRooms, setAvailableRooms] = useState(rooms);
+  const [availableRooms, setAvailableRooms] = useState<Array<{ id: string; roomNumber: string; name: string; type: string; dailyRate: number; capacity: number }>>(rooms);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function PortalHotelBookingForm({ customerId, pets, rooms }: PortalHotelB
     try {
       const result = await getAvailableRooms(checkInDate, checkOutDate);
       if (result.success && result.data) {
-        setAvailableRooms(result.data);
+        setAvailableRooms(result.data as Array<{ id: string; roomNumber: string; name: string; type: string; dailyRate: number; capacity: number }>);
       } else {
         setAvailableRooms([]);
         if (!result.success) {

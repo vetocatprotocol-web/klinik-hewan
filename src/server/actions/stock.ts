@@ -5,9 +5,10 @@ import { prisma } from "../lib/prisma";
 import { stockAdjustmentSchema } from "@/lib/validators";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
+import { Prisma } from "@prisma/client";
 
 export async function adjustStock(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult> {
   const client = await prisma();
@@ -16,7 +17,7 @@ export async function adjustStock(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER" && role !== "KASIR") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -53,7 +54,7 @@ export async function adjustStock(
       data: {
         productId: data.productId,
         quantity: data.quantity,
-        reason: data.reason as any,
+        reason: data.reason as "INITIAL" | "POS_SOLD" | "BILLING_SOLD" | "DAMAGED" | "RETURN" | "OPNAME_ADJUST" | "OTHER",
         notes: data.notes,
         createdBy: session.user.id!,
       },
@@ -77,6 +78,7 @@ export async function adjustStock(
   return { success: true, data: undefined };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getInventory(): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -96,6 +98,7 @@ export async function getStockHistory(
   productId: string,
   dateFrom?: string,
   dateTo?: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -103,7 +106,7 @@ export async function getStockHistory(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER" && role !== "KASIR") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -113,12 +116,15 @@ export async function getStockHistory(
     return { success: false, error: { message: "Produk tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  const where: any = { productId };
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
-  }
+  const where: Prisma.StockAdjustmentWhereInput = {
+    productId,
+    ...(dateFrom || dateTo ? {
+      createdAt: {
+        ...(dateFrom && { gte: new Date(dateFrom) }),
+        ...(dateTo && { lte: new Date(dateTo) }),
+      }
+    } : {}),
+  };
 
   const adjustments = await client.stockAdjustment.findMany({
     where,
@@ -129,6 +135,7 @@ export async function getStockHistory(
   return { success: true, data: adjustments };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getStockAdjustmentRequests(): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -136,7 +143,7 @@ export async function getStockAdjustmentRequests(): Promise<ActionResult<any>> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER" && role !== "KASIR") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -153,6 +160,7 @@ export async function getStockAdjustmentRequests(): Promise<ActionResult<any>> {
   return { success: true, data: requests };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getLowStockAlerts(): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -180,7 +188,7 @@ export async function recordStockOpname(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER" && role !== "KASIR") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -198,8 +206,8 @@ export async function recordStockOpname(
     return { success: false, error: { message: "Beberapa produk tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  const adjustments: any[] = [];
-  const productUpdates: any[] = [];
+  const adjustments: ReturnType<typeof client.stockAdjustment.create>[] = [];
+  const productUpdates: ReturnType<typeof client.product.update>[] = [];
 
   for (const item of products) {
     const product = existingProducts.find((p) => p.id === item.productId)!;

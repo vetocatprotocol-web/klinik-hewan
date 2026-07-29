@@ -8,7 +8,7 @@ import { createAuditLog } from "../lib/audit";
 import { createNotification } from "../lib/notifications";
 
 export async function createHotelBooking(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -17,7 +17,7 @@ export async function createHotelBooking(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["KASIR", "CUSTOMER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -134,7 +134,7 @@ export async function updateHotelBooking(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["KASIR", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -148,10 +148,14 @@ export async function updateHotelBooking(
     return { success: false, error: { message: "Tidak bisa mengubah booking yang sudah selesai atau dibatalkan", code: "BUSINESS_RULE" } };
   }
 
-  const updateData: any = {};
-  if (data.notes !== undefined) updateData.notes = data.notes;
-  if (data.serviceFee !== undefined) updateData.serviceFee = data.serviceFee;
-  if (data.discountAmount !== undefined) updateData.discountAmount = data.discountAmount;
+  const serviceFee = Number(data.serviceFee ?? booking.serviceFee);
+  const discountAmount = Number(data.discountAmount ?? booking.discountAmount);
+  let totalDays = data.checkInDate || data.checkOutDate
+    ? Math.ceil(((data.checkOutDate ? new Date(data.checkOutDate) : booking.checkOutDate).getTime() - (data.checkInDate ? new Date(data.checkInDate) : booking.checkInDate).getTime()) / (1000 * 60 * 60 * 24))
+    : booking.totalDays;
+  const dailyRate = Number(booking.dailyRate);
+  const subtotal = totalDays * dailyRate;
+  const total = subtotal + serviceFee - discountAmount;
 
   if (data.checkInDate || data.checkOutDate) {
     const newCheckIn = data.checkInDate ? new Date(data.checkInDate) : booking.checkInDate;
@@ -161,20 +165,22 @@ export async function updateHotelBooking(
       return { success: false, error: { message: "Tanggal check-out harus setelah check-in", code: "BUSINESS_RULE" } };
     }
 
-    updateData.checkInDate = newCheckIn;
-    updateData.checkOutDate = newCheckOut;
-    updateData.totalDays = Math.ceil((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
+    totalDays = Math.ceil((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
   }
 
-  const serviceFee = updateData.serviceFee ?? Number(booking.serviceFee);
-  const discountAmount = updateData.discountAmount ?? Number(booking.discountAmount);
-  const totalDays = updateData.totalDays ?? booking.totalDays;
-  const dailyRate = Number(booking.dailyRate);
-  const subtotal = totalDays * dailyRate;
-  updateData.subtotal = subtotal;
-  updateData.total = subtotal + serviceFee - discountAmount;
-
-  await client.hotelBooking.update({ where: { id: bookingId }, data: updateData });
+  await client.hotelBooking.update({
+    where: { id: bookingId },
+    data: {
+      ...(data.notes !== undefined && { notes: data.notes }),
+      ...(data.serviceFee !== undefined && { serviceFee: data.serviceFee }),
+      ...(data.discountAmount !== undefined && { discountAmount: data.discountAmount }),
+      ...(data.checkInDate && { checkInDate: new Date(data.checkInDate) }),
+      ...(data.checkOutDate && { checkOutDate: new Date(data.checkOutDate) }),
+      totalDays,
+      subtotal: totalDays * dailyRate,
+      total: totalDays * dailyRate + serviceFee - discountAmount,
+    },
+  });
 
   await createAuditLog({
     userId: session.user.id,
@@ -182,7 +188,7 @@ export async function updateHotelBooking(
     entityType: "HotelBooking",
     entityId: bookingId,
     changes: {
-      total: { old: Number(booking.total), new: updateData.total },
+      total: { old: Number(booking.total), new: total },
     },
   });
 
@@ -199,7 +205,7 @@ export async function cancelHotelBooking(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["KASIR", "CUSTOMER", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -249,7 +255,7 @@ export async function checkInHotel(bookingId: string): Promise<ActionResult> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "KASIR") {
     return { success: false, error: { message: "Hanya Kasir yang bisa melakukan check-in", code: "FORBIDDEN" } };
   }
@@ -297,7 +303,7 @@ export async function checkOutHotel(bookingId: string): Promise<ActionResult> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "KASIR") {
     return { success: false, error: { message: "Hanya Kasir yang bisa melakukan check-out", code: "FORBIDDEN" } };
   }
@@ -351,7 +357,7 @@ export async function addBookingService(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["KASIR", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -408,6 +414,7 @@ export async function addBookingService(
 export async function getAvailableRooms(
   checkInDate: string,
   checkOutDate: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any[]>> {
   const client = await prisma();
   const session = await auth();
@@ -443,6 +450,7 @@ export async function getAvailableRooms(
 export async function getHotelOccupancy(
   dateFrom?: string,
   dateTo?: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -450,7 +458,7 @@ export async function getHotelOccupancy(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -500,6 +508,7 @@ export async function getHotelOccupancy(
 export async function getHotelRevenue(
   dateFrom?: string,
   dateTo?: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -507,7 +516,7 @@ export async function getHotelRevenue(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }

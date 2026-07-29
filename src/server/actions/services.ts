@@ -11,12 +11,12 @@ const MASTER_ROLES = ["OWNER"];
 // ─── Services ─────────────────────────────────────────────
 
 export async function createService(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -38,7 +38,7 @@ export async function createService(
     return { success: false, error: { message: "Nama layanan sudah ada", field: "name" } };
   }
 
-  const service = await client.service.create({ data: validated.data as any });
+  const service = await client.service.create({ data: validated.data as Parameters<typeof client.service.create>[0]["data"] });
 
   await createAuditLog({
     userId: session.user.id,
@@ -53,12 +53,12 @@ export async function createService(
 
 export async function updateService(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -85,7 +85,7 @@ export async function updateService(
     return { success: false, error: { message: "Layanan tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  await client.service.update({ where: { id }, data: validated.data as any });
+  await client.service.update({ where: { id }, data: validated.data as Parameters<typeof client.service.update>[0]["data"] });
 
   await createAuditLog({
     userId: session.user.id,
@@ -105,7 +105,7 @@ export async function updateService(
 export async function archiveService(id: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -144,12 +144,12 @@ export async function archiveService(id: string): Promise<ActionResult> {
 // ─── Drugs ────────────────────────────────────────────────
 
 export async function createDrug(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -171,7 +171,7 @@ export async function createDrug(
     return { success: false, error: { message: "Nama obat sudah ada", field: "name" } };
   }
 
-  const drug = await client.drug.create({ data: validated.data as any });
+  const drug = await client.drug.create({ data: validated.data as Parameters<typeof client.drug.create>[0]["data"] });
 
   await createAuditLog({
     userId: session.user.id,
@@ -186,12 +186,12 @@ export async function createDrug(
 
 export async function updateDrug(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -222,7 +222,7 @@ export async function updateDrug(
     return { success: false, error: { message: "Unit obat tidak dapat diubah setelah pembuatan", field: "unit" } };
   }
 
-  await client.drug.update({ where: { id }, data: validated.data as any });
+  await client.drug.update({ where: { id }, data: validated.data as Parameters<typeof client.drug.update>[0]["data"] });
 
   await createAuditLog({
     userId: session.user.id,
@@ -241,7 +241,7 @@ export async function updateDrug(
 export async function archiveDrug(id: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -281,12 +281,12 @@ export async function archiveDrug(id: string): Promise<ActionResult> {
 // ─── Products ─────────────────────────────────────────────
 
 export async function createProduct(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -338,12 +338,12 @@ export async function createProduct(
 
 export async function updateProduct(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -393,7 +393,7 @@ export async function updateProduct(
 export async function archiveProduct(id: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -427,12 +427,12 @@ export async function archiveProduct(id: string): Promise<ActionResult> {
 // ─── Product Categories ───────────────────────────────────
 
 export async function createProductCategory(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -467,12 +467,12 @@ export async function createProductCategory(
 
 export async function updateProductCategory(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -513,7 +513,7 @@ export async function updateProductCategory(
 export async function archiveProductCategory(id: string): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || !MASTER_ROLES.includes((session.user as any).role)) {
+  if (!session?.user || !MASTER_ROLES.includes((session.user as { id: string; role: string }).role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -549,6 +549,7 @@ export async function archiveProductCategory(id: string): Promise<ActionResult> 
 
 // ─── Change History ──────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getServiceChangeHistory(serviceId: string): Promise<ActionResult<any[]>> {
   const client = await prisma();
   const session = await auth();
@@ -556,7 +557,7 @@ export async function getServiceChangeHistory(serviceId: string): Promise<Action
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -578,6 +579,7 @@ export async function getServiceChangeHistory(serviceId: string): Promise<Action
   return { success: true, data: history };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getDrugChangeHistory(drugId: string): Promise<ActionResult<any[]>> {
   const client = await prisma();
   const session = await auth();
@@ -585,7 +587,7 @@ export async function getDrugChangeHistory(drugId: string): Promise<ActionResult
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -607,6 +609,7 @@ export async function getDrugChangeHistory(drugId: string): Promise<ActionResult
   return { success: true, data: history };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getProductChangeHistory(productId: string): Promise<ActionResult<any[]>> {
   const client = await prisma();
   const session = await auth();
@@ -614,7 +617,7 @@ export async function getProductChangeHistory(productId: string): Promise<Action
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }

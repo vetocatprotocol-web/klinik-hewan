@@ -16,7 +16,7 @@ export async function getSession() {
 }
 
 export async function forgotPassword(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult> {
   const client = await prisma();

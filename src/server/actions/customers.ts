@@ -21,7 +21,7 @@ function generateTempPassword(): string {
 }
 
 export async function createCustomer(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -30,7 +30,7 @@ export async function createCustomer(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -191,7 +191,7 @@ export async function createCustomer(
 
 export async function updateCustomer(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -201,7 +201,7 @@ export async function updateCustomer(
   }
 
   // Portal users can only update their own customer record
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
     const customer = await client.customer.findUnique({ where: { id } });
@@ -286,6 +286,7 @@ export async function updateCustomer(
   return { success: true, data: id };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getMyProfile(): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -293,7 +294,7 @@ export async function getMyProfile(): Promise<ActionResult<any>> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "CUSTOMER") {
     return { success: false, error: { message: "Hanya Customer yang bisa mengakses profil ini", code: "FORBIDDEN" } };
   }
@@ -319,7 +320,7 @@ export async function archiveCustomer(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mengarsipkan pelanggan", code: "FORBIDDEN" } };
   }

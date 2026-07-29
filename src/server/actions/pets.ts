@@ -9,7 +9,7 @@ import { uploadFile } from "./uploads";
 
 export async function createPet(
   customerId: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -44,7 +44,7 @@ export async function createPet(
   }
 
   // Authorization: staff can add pets to any customer, portal users only to own customer record
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
     // Portal user - verify ownership
@@ -83,7 +83,7 @@ export async function createPet(
 
 export async function updatePet(
   id: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -121,7 +121,7 @@ export async function updatePet(
   }
 
   // Authorization: staff can update any pet, portal users only own pets
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
     const customer = await client.customer.findUnique({ where: { id: pet.customerId } });
@@ -174,7 +174,7 @@ export async function archivePet(id: string): Promise<ActionResult> {
   }
 
   // Authorization: staff can archive any pet, portal users only own pets
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
     const customer = await client.customer.findUnique({ where: { id: pet.customerId } });
@@ -220,7 +220,7 @@ export async function uploadPetPhoto(
     return { success: false, error: { message: "Tidak bisa mengubah hewan yang sudah diarsipkan", code: "BUSINESS_RULE" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role)) {
     const customer = await client.customer.findUnique({ where: { id: pet.customerId } });

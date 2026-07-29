@@ -39,7 +39,7 @@ let lastCleanup = Date.now();
 const ROLE_PREFIXES: Record<string, string[]> = {
   OWNER: [],
   DOKTER: ["/appointments", "/visits", "/customers", "/prescriptions", "/reports", "/medical-records"],
-  KASIR: ["/pos", "/invoices", "/customers", "/master", "/hotel", "/suppliers", "/reconciliation"],
+  KASIR: ["/pos", "/invoices", "/payments", "/customers", "/stock", "/master", "/hotel", "/suppliers", "/reconciliation"],
   CUSTOMER: ["/portal"],
 };
 

@@ -2,6 +2,7 @@
 
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
+import { Prisma } from "@prisma/client";
 
 const REPORT_ROLES = ["OWNER", "KASIR", "DOKTER"];
 
@@ -10,7 +11,7 @@ export async function getDailyReport(date?: string) {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
   const targetDate = date ? new Date(date) : new Date();
@@ -53,7 +54,7 @@ export async function getRevenueReport(startDate: string, endDate: string) {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
   const start = new Date(startDate);
@@ -96,10 +97,10 @@ export async function getCustomerReport() {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
-  const customerStats: any[] = await client.$queryRaw`
+  const customerStats: Array<{ id: string; name: string; phone: string; visitCount: number; totalSpend: number | string; lastVisit: Date | string | null }> = await client.$queryRaw`
     SELECT
       c.id,
       c.name,
@@ -130,7 +131,7 @@ export async function getPaymentReport() {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!REPORT_ROLES.includes(role)) throw new Error("FORBIDDEN");
 
   const [unpaidInvoices, allPayments] = await Promise.all([
@@ -158,7 +159,7 @@ export async function getReceivablesAgingReport() {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) throw new Error("FORBIDDEN");
 
   const unpaidInvoices = await client.invoice.findMany({
@@ -170,10 +171,10 @@ export async function getReceivablesAgingReport() {
   const now = new Date();
 
   const buckets = {
-    "0-30": { count: 0, total: 0, invoices: [] as any[] },
-    "31-60": { count: 0, total: 0, invoices: [] as any[] },
-    "61-90": { count: 0, total: 0, invoices: [] as any[] },
-    ">90": { count: 0, total: 0, invoices: [] as any[] },
+    "0-30": { count: 0, total: 0, invoices: [] as Array<Record<string, unknown>> },
+    "31-60": { count: 0, total: 0, invoices: [] as Array<Record<string, unknown>> },
+    "61-90": { count: 0, total: 0, invoices: [] as Array<Record<string, unknown>> },
+    ">90": { count: 0, total: 0, invoices: [] as Array<Record<string, unknown>> },
   };
 
   for (const invoice of unpaidInvoices) {
@@ -216,15 +217,17 @@ export async function getCollectionRateReport(dateFrom?: string, dateTo?: string
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.invoiceDate = {};
-    if (dateFrom) where.invoiceDate.gte = new Date(dateFrom);
-    if (dateTo) where.invoiceDate.lte = new Date(dateTo);
-  }
+  const where: Prisma.InvoiceWhereInput = {
+    ...(dateFrom || dateTo ? {
+      invoiceDate: {
+        ...(dateFrom && { gte: new Date(dateFrom) }),
+        ...(dateTo && { lte: new Date(dateTo) }),
+      }
+    } : {}),
+  };
 
   const invoices = await client.invoice.findMany({ where });
   const totalInvoices = invoices.length;
@@ -250,15 +253,12 @@ export async function getVisitStatisticsReport(dateFrom?: string, dateTo?: strin
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.visitDate = {};
-    if (dateFrom) where.visitDate.gte = new Date(dateFrom);
-    if (dateTo) where.visitDate.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { visitDate: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const visits = await client.visit.findMany({
     where,
@@ -314,15 +314,12 @@ export async function getDiagnosisBreakdownReport(dateFrom?: string, dateTo?: st
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.visitDate = {};
-    if (dateFrom) where.visitDate.gte = new Date(dateFrom);
-    if (dateTo) where.visitDate.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { visitDate: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const visits = await client.visit.findMany({
     where,
@@ -353,19 +350,16 @@ export async function getHotelOccupancyReport(dateFrom?: string, dateTo?: string
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) throw new Error("FORBIDDEN");
 
   const totalRooms = await client.hotelRoom.count({
     where: { status: { not: "MAINTENANCE" } },
   });
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.checkInDate = {};
-    if (dateFrom) where.checkInDate.gte = new Date(dateFrom);
-    if (dateTo) where.checkInDate.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { checkInDate: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const bookings = await client.hotelBooking.findMany({
     where,
@@ -420,15 +414,12 @@ export async function getDiscountReport(dateFrom?: string, dateTo?: string) {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.appliedAt = {};
-    if (dateFrom) where.appliedAt.gte = new Date(dateFrom);
-    if (dateTo) where.appliedAt.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { appliedAt: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const discounts = await client.discountLog.findMany({
     where,
@@ -472,15 +463,12 @@ export async function getStockAdjustmentReport(dateFrom?: string, dateTo?: strin
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { createdAt: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const adjustments = await client.stockAdjustment.findMany({
     where,
@@ -522,15 +510,12 @@ export async function getInventoryTurnoverReport(dateFrom?: string, dateTo?: str
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { createdAt: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const products = await client.product.findMany({
     where: { status: "ACTIVE" },
@@ -586,15 +571,12 @@ export async function getSupplierPerformanceReport(dateFrom?: string, dateTo?: s
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) throw new Error("FORBIDDEN");
 
-  const poWhere: any = {};
-  if (dateFrom || dateTo) {
-    poWhere.orderDate = {};
-    if (dateFrom) poWhere.orderDate.gte = new Date(dateFrom);
-    if (dateTo) poWhere.orderDate.lte = new Date(dateTo);
-  }
+  const poWhere = {
+    ...(dateFrom || dateTo ? { orderDate: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const suppliers = await client.supplier.findMany({
     where: { status: "ACTIVE" },
@@ -657,15 +639,12 @@ export async function getVaccinationReport(dateFrom?: string, dateTo?: string) {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.visitDate = {};
-    if (dateFrom) where.visitDate.gte = new Date(dateFrom);
-    if (dateTo) where.visitDate.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { visitDate: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const vaccinationServices = await client.service.findMany({
     where: { category: "VAKSINASI", status: "ACTIVE" },
@@ -719,15 +698,12 @@ export async function getPriceChangeReport(dateFrom?: string, dateTo?: string) {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") throw new Error("FORBIDDEN");
 
-  const where: any = {};
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
-  }
+  const where = {
+    ...(dateFrom || dateTo ? { createdAt: { ...(dateFrom && { gte: new Date(dateFrom) }), ...(dateTo && { lte: new Date(dateTo) }) } } : {}),
+  };
 
   const [serviceChanges, drugChanges, productChanges] = await Promise.all([
     client.serviceChangeRequest.findMany({

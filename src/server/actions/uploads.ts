@@ -61,7 +61,7 @@ export async function deleteFile(path: string): Promise<ActionResult> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }

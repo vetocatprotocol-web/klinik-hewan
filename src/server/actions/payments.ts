@@ -8,9 +8,10 @@ import { generatePaymentNumber } from "@/lib/utils";
 import { createAuditLog } from "../lib/audit";
 import { createNotification } from "../lib/notifications";
 import { sendEmail, generatePaymentConfirmationEmail } from "../lib/email";
+import { Prisma } from "@prisma/client";
 
 export async function processPayment(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -19,7 +20,7 @@ export async function processPayment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Hanya Owner atau Kasir yang bisa memproses pembayaran", code: "FORBIDDEN" } };
   }
@@ -75,7 +76,7 @@ export async function processPayment(
 
     await tx.invoice.update({
       where: { id: data.invoiceId },
-      data: { paidAmount: newPaidAmount, status: newStatus as any },
+      data: { paidAmount: newPaidAmount, status: newStatus as "PAID" | "PARTIAL" },
     });
 
     if (newStatus === "PAID") {
@@ -134,12 +135,13 @@ export async function getPayments({ page = 1, search = "" }: { page?: number; se
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const where: any = {};
-  if (search) {
-    where.OR = [
-      { paymentNumber: { contains: search, mode: "insensitive" } },
-    ];
-  }
+  const where: Prisma.PaymentWhereInput = {
+    ...(search ? {
+      OR: [
+        { paymentNumber: { contains: search, mode: "insensitive" as const } },
+      ],
+    } : {}),
+  };
 
   const PAGE_SIZE = 20;
   const [data, total] = await Promise.all([
@@ -166,7 +168,7 @@ export async function voidPayment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -204,7 +206,7 @@ export async function voidPayment(
           where: { id: payment.payableId },
           data: {
             paidAmount: Math.max(0, newPaidAmount),
-            status: newStatus as any,
+            status: newStatus as "UNPAID" | "PARTIAL",
           },
         });
 
@@ -234,6 +236,7 @@ export async function voidPayment(
 
 export async function printReceipt(
   paymentId: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -241,7 +244,7 @@ export async function printReceipt(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -277,7 +280,7 @@ export async function printReceipt(
       ? {
           invoiceNumber: invoice.invoiceNumber,
           customer: invoice.customer,
-          items: invoice.invoiceItems.map((item: any) => ({
+          items: invoice.invoiceItems.map((item) => ({
             name: item.itemName,
             quantity: item.quantity,
             unitPrice: Number(item.unitPrice),

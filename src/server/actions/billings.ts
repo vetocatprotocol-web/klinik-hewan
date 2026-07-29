@@ -11,7 +11,7 @@ import { createNotification } from "../lib/notifications";
 const BILLING_ROLES = ["OWNER", "DOKTER"];
 
 export async function createBilling(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -20,7 +20,7 @@ export async function createBilling(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!BILLING_ROLES.includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -75,7 +75,7 @@ export async function addBillingItem(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!BILLING_ROLES.includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -150,7 +150,7 @@ export async function addBillingItem(
   await client.billingItem.create({
     data: {
       billingId,
-      itemType: itemType as any,
+      itemType: itemType as "SERVICE" | "DRUG" | "PRODUCT",
       serviceId: itemType === "SERVICE" ? itemId : null,
       drugId: itemType === "DRUG" ? itemId : null,
       productId: itemType === "PRODUCT" ? itemId : null,
@@ -182,7 +182,7 @@ export async function removeBillingItem(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!BILLING_ROLES.includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -237,7 +237,7 @@ export async function completeBilling(id: string): Promise<ActionResult<string>>
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!BILLING_ROLES.includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -269,7 +269,7 @@ export async function completeBilling(id: string): Promise<ActionResult<string>>
   const subtotal = billing.billingItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
 
   const taxSetting = await client.setting.findUnique({ where: { key: "tax_config" } });
-  const taxConfig = taxSetting?.value as any;
+  const taxConfig = taxSetting?.value as { enabled: boolean; type: string; value: number };
   let taxAmount = 0;
   if (taxConfig?.enabled) {
     if (taxConfig.type === "PERCENTAGE") {
@@ -376,7 +376,7 @@ export async function reopenBilling(id: string): Promise<ActionResult> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa membuka kembali billing", code: "FORBIDDEN" } };
   }

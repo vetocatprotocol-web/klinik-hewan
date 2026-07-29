@@ -41,7 +41,7 @@ export default function NewReconciliationPage() {
       try {
         const result = await getDailyReconciliation(selectedDate);
         if (result.success) {
-          setExpectedData(result.data);
+          setExpectedData(result.data as ReconciliationData);
         } else {
           setExpectedData(null);
         }

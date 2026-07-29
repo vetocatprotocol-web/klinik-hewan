@@ -26,14 +26,14 @@ async function requireAuth() {
 
 async function requireStaff() {
   const session = await requireAuth();
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!STAFF_ROLES.includes(role)) throw new Error("FORBIDDEN");
   return session;
 }
 
 async function requireOwner() {
   const session = await requireAuth();
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") throw new Error("FORBIDDEN");
   return session;
 }
@@ -55,8 +55,8 @@ export async function fetchRoles() { await requireOwner(); return getRoles(); }
 export async function fetchSettings() { await requireStaff(); return getSettings(); }
 export async function fetchNotifications(userId: string) {
   const session = await requireAuth();
-  const sessionUserId = (session.user as any).id;
-  const role = (session.user as any).role;
+  const sessionUserId = (session.user as { id: string }).id;
+  const role = (session.user as { id: string; role: string }).role;
   // Staff can fetch any notifications, customers can only fetch their own
   const staffRoles = ["OWNER", "DOKTER", "KASIR"];
   if (!staffRoles.includes(role) && userId !== sessionUserId) {

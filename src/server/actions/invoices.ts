@@ -5,7 +5,9 @@ import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 import { sendEmail, generateInvoiceEmail } from "../lib/email";
+import { Prisma } from "@prisma/client";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getInvoice(invoiceId: string): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -53,7 +55,7 @@ export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResul
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -83,30 +85,28 @@ export async function downloadInvoicePdf(invoiceId: string): Promise<ActionResul
 export async function exportInvoices(
   filters: { status?: string; dateFrom?: string; dateTo?: string; customerId?: string },
   format: "csv" | "pdf"
-): Promise<ActionResult<any[]>> {
+): Promise<ActionResult<Array<Record<string, unknown>>>> {
   const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const where: any = {};
-  if (filters.status) {
-    where.status = filters.status;
-  }
-  if (filters.customerId) {
-    where.customerId = filters.customerId;
-  }
-  if (filters.dateFrom || filters.dateTo) {
-    where.invoiceDate = {};
-    if (filters.dateFrom) where.invoiceDate.gte = new Date(filters.dateFrom);
-    if (filters.dateTo) where.invoiceDate.lte = new Date(filters.dateTo);
-  }
+  const where: Prisma.InvoiceWhereInput = {
+    ...(filters.status && { status: filters.status as Prisma.EnumInvoiceStatusFilter["equals"] }),
+    ...(filters.customerId && { customerId: filters.customerId }),
+    ...(filters.dateFrom || filters.dateTo ? {
+      invoiceDate: {
+        ...(filters.dateFrom && { gte: new Date(filters.dateFrom) }),
+        ...(filters.dateTo && { lte: new Date(filters.dateTo) }),
+      }
+    } : {}),
+  };
 
   const invoices = await client.invoice.findMany({
     where,
@@ -143,7 +143,7 @@ export async function exportInvoices(
 }
 
 export async function emailInvoice(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -152,7 +152,7 @@ export async function emailInvoice(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }

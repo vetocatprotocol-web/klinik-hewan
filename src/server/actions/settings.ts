@@ -7,12 +7,12 @@ import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 
 export async function updateCompanyInfo(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -49,12 +49,12 @@ export async function updateCompanyInfo(
 }
 
 export async function updateTaxConfig(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -87,12 +87,12 @@ export async function updateTaxConfig(
 }
 
 export async function updatePaymentMethods(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -103,7 +103,7 @@ export async function updatePaymentMethods(
 
   const methods = JSON.parse(methodsJson);
 
-  const hasActive = methods.some((m: any) => m.active);
+  const hasActive = methods.some((m: { active: boolean }) => m.active);
   if (!hasActive) {
     return { success: false, error: { message: "Minimal 1 metode pembayaran harus aktif", code: "BUSINESS_RULE" } };
   }
@@ -125,12 +125,12 @@ export async function updatePaymentMethods(
 }
 
 export async function updateNumberingFormat(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -164,7 +164,7 @@ export async function updateHotelRates(
 ): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -197,7 +197,7 @@ export async function updateFraudPreventionPolicies(policies: {
 }): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -218,10 +218,11 @@ export async function updateFraudPreventionPolicies(policies: {
   return { success: true, data: undefined };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getSettingChangeHistory(key: string): Promise<ActionResult<any[]>> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
@@ -240,11 +241,11 @@ export async function getSettingChangeHistory(key: string): Promise<ActionResult
 export async function revertSetting(key: string, version: number): Promise<ActionResult> {
   const client = await prisma();
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "OWNER") {
+  if (!session?.user || (session.user as { id: string; role: string }).role !== "OWNER") {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const userId = (session.user as any).id as string;
+  const userId = (session.user as { id: string }).id;
 
   const logs = await client.auditLog.findMany({
     where: {
@@ -269,7 +270,7 @@ export async function revertSetting(key: string, version: number): Promise<Actio
     return { success: false, error: { message: "Data perubahan tidak tersedia untuk versi ini", code: "NOT_FOUND" } };
   }
 
-  const changes = targetLog.changes as Record<string, any>;
+  const changes = targetLog.changes as { value?: { old?: unknown; new?: unknown } };
   const oldValue = changes.value?.old;
 
   if (oldValue === undefined || oldValue === null) {

@@ -316,7 +316,7 @@ model Visit {
 model VisitItem {
   id            String     @id @default(cuid())
   visitId       String     @map("visit_id")
-  itemType      Itemtype   @map("item_type")
+  itemType      ItemType   @map("item_type")
   serviceId     String?    @map("service_id")
   drugId        String?    @map("drug_id")
   quantity      Int        @default(1)
@@ -370,7 +370,7 @@ model Billing {
 model BillingItem {
   id        String     @id @default(cuid())
   billingId String     @map("billing_id")
-  itemType  Itemtype   @map("item_type")
+  itemType  ItemType   @map("item_type")
   serviceId String?    @map("service_id")
   drugId    String?    @map("drug_id")
   productId String?    @map("product_id")
@@ -655,10 +655,27 @@ enum MasterStatus {
   ARCHIVED
 }
 
-enum Itemtype {
+enum ItemType {
   SERVICE
   DRUG
   PRODUCT
+}
+
+enum PaymentMethodType {
+  CASH
+  BANK_TRANSFER
+  CARD
+  EWALLET
+  CHECK
+  INSTALLMENT
+  OTHER
+}
+
+enum HotelServiceType {
+  GROOMING
+  EXTRA_FOOD
+  MEDICATION
+  PLAYTIME
 }
 
 enum AppointmentStatus {

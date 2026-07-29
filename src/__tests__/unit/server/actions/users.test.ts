@@ -170,9 +170,10 @@ describe("User Management Actions", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.failedLoginAttempts).toBe(5);
-        expect(result.data.isLocked).toBe(true);
-        expect(result.data.lockedUntil).toEqual(futureDate);
+        const data = result.data as { failedLoginAttempts: number; isLocked: boolean; lockedUntil: Date };
+        expect(data.failedLoginAttempts).toBe(5);
+        expect(data.isLocked).toBe(true);
+        expect(data.lockedUntil).toEqual(futureDate);
       }
     });
 
@@ -194,7 +195,8 @@ describe("User Management Actions", () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.isLocked).toBe(false);
+        const data = result.data as { isLocked: boolean };
+        expect(data.isLocked).toBe(false);
       }
     });
   });

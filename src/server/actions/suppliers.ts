@@ -6,15 +6,16 @@ import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 import { createNotification } from "../lib/notifications";
 import { generatePONumber, generateGRNumber } from "@/lib/utils";
+import { Prisma } from "@prisma/client";
 
-function getUserId(session: any): string {
-  const id = session.user?.id ?? (session.user as any)?.id;
+function getUserId(session: { user?: { id?: string | null } | null }): string {
+  const id = session.user?.id;
   if (!id) throw new Error("UNAUTHORIZED");
-  return id as string;
+  return id;
 }
 
 export async function createSupplier(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -24,7 +25,7 @@ export async function createSupplier(
   }
 
   const userId = getUserId(session);
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -73,7 +74,7 @@ export async function createSupplier(
         requestedBy: userId,
         changeType: "CREATE",
         oldData: undefined,
-        newData: data as any,
+        newData: data as unknown as Prisma.InputJsonValue,
         reason: "Pembuatan supplier baru oleh KASIR",
         status: "PENDING",
       },
@@ -121,7 +122,7 @@ export async function createSupplier(
 
 export async function updateSupplier(
   supplierId: string,
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -131,7 +132,7 @@ export async function updateSupplier(
   }
 
   const userId = getUserId(session);
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mengubah supplier", code: "FORBIDDEN" } };
   }
@@ -203,7 +204,7 @@ export async function approveSupplier(
   }
 
   const userId = getUserId(session);
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menyetujui supplier", code: "FORBIDDEN" } };
   }
@@ -228,7 +229,7 @@ export async function approveSupplier(
       },
     });
 
-    const newData = changeRequest.newData as any;
+    const newData = changeRequest.newData as { name: string; phone?: string; email?: string; address?: string; city?: string; postalCode?: string; contactPerson?: string; paymentTerms?: string; specialization?: string };
     if (changeRequest.changeType === "CREATE") {
       await tx.supplier.update({
         where: { id: supplierId },
@@ -280,7 +281,7 @@ export async function approveSupplier(
     await createNotification({
       userId: changeRequest.requestedBy,
       title: "Supplier Disetujui",
-      message: `Permintaan supplier "${(changeRequest.newData as any).name}" telah disetujui oleh Owner.`,
+      message: `Permintaan supplier "${(changeRequest.newData as Record<string, unknown>).name}" telah disetujui oleh Owner.`,
       type: "success",
     });
   }
@@ -299,7 +300,7 @@ export async function rejectSupplier(
   }
 
   const userId = getUserId(session);
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menolak supplier", code: "FORBIDDEN" } };
   }
@@ -363,15 +364,16 @@ export async function listSuppliers({
   pageSize?: number;
 }) {
   const client = await prisma();
-  const where: any = {};
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { contactPerson: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } },
-    ];
-  }
-  if (status) where.status = status;
+  const where: Prisma.SupplierWhereInput = {
+    ...(search ? {
+      OR: [
+        { name: { contains: search, mode: "insensitive" as const } },
+        { contactPerson: { contains: search, mode: "insensitive" as const } },
+        { email: { contains: search, mode: "insensitive" as const } },
+      ],
+    } : {}),
+    ...(status && { status: status as Prisma.EnumSupplierStatusFilter["equals"] }),
+  };
 
   const [data, total] = await Promise.all([
     client.supplier.findMany({
@@ -406,6 +408,7 @@ export async function getSupplierById(id: string) {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getSupplierPerformance(supplierId: string): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -413,7 +416,7 @@ export async function getSupplierPerformance(supplierId: string): Promise<Action
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -436,7 +439,7 @@ export async function getSupplierPerformance(supplierId: string): Promise<Action
   const onTimePOs = deliveredPOs.filter((po) => {
     if (!po.requiredDate) return true;
     const lastReceipt = po.receipts.length > 0
-      ? po.receipts.reduce((latest: any, r: any) => r.receivedDate > latest.receivedDate ? r : latest)
+      ? po.receipts.reduce((latest, r) => r.receivedDate > latest.receivedDate ? r : latest)
       : null;
     if (!lastReceipt) return true;
     return lastReceipt.receivedDate <= po.requiredDate;
@@ -453,7 +456,7 @@ export async function getSupplierPerformance(supplierId: string): Promise<Action
   const leadTimes = deliveredPOs
     .filter((po) => po.receipts.length > 0)
     .map((po) => {
-      const lastReceipt = po.receipts.reduce((latest: any, r: any) =>
+      const lastReceipt = po.receipts.reduce((latest, r) =>
         r.receivedDate > latest.receivedDate ? r : latest
       );
       return lastReceipt.receivedDate.getTime() - po.orderDate.getTime();
@@ -473,6 +476,7 @@ export async function getSupplierPerformance(supplierId: string): Promise<Action
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getCancelledPoHistory(): Promise<ActionResult<any[]>> {
   const client = await prisma();
   const session = await auth();
@@ -480,7 +484,7 @@ export async function getCancelledPoHistory(): Promise<ActionResult<any[]>> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -509,7 +513,7 @@ export async function createPurchaseOrder(
   }
 
   const userId = getUserId(session);
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -599,7 +603,7 @@ export async function receiveGoodsReceipt(
   }
 
   const userId = getUserId(session);
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -679,7 +683,7 @@ export async function receiveGoodsReceipt(
     const newStatus = allReceived ? "RECEIVED" : anyReceived ? "PARTIAL_RECEIVED" : po.status;
     await tx.purchaseOrder.update({
       where: { id: poId },
-      data: { status: newStatus as any },
+      data: { status: newStatus as "PENDING" | "PARTIAL_RECEIVED" | "RECEIVED" | "CANCELLED" },
     });
 
     return goodsReceipt;
@@ -711,7 +715,7 @@ export async function approvePurchaseOrder(
   }
 
   const userId = getUserId(session);
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menyetujui Purchase Order", code: "FORBIDDEN" } };
   }

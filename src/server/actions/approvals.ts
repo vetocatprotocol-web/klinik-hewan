@@ -2,18 +2,19 @@
 
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
-import { ActionResult } from "@/types";
+import { ActionResult, PendingApprovalsData } from "@/types";
 import { createAuditLog } from "../lib/audit";
 import { createNotification } from "../lib/notifications";
+import { Prisma } from "@prisma/client";
 
-export async function getPendingApprovals(): Promise<ActionResult<any>> {
+export async function getPendingApprovals(): Promise<ActionResult<PendingApprovalsData>> {
   const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mengakses persetujuan", code: "FORBIDDEN" } };
   }
@@ -82,7 +83,7 @@ export async function approvePriceChange(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menyetujui perubahan harga", code: "FORBIDDEN" } };
   }
@@ -217,12 +218,12 @@ export async function rejectPriceChange(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menolak perubahan harga", code: "FORBIDDEN" } };
   }
 
-  let request: any;
+  let request: { status: string; requestedBy?: string } | null = null;
   if (entityType === "service") {
     request = await client.serviceChangeRequest.findUnique({ where: { id: changeRequestId } });
     if (!request) {
@@ -300,7 +301,7 @@ export async function approveStockAdjustment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menyetujui penyesuaian stok", code: "FORBIDDEN" } };
   }
@@ -375,7 +376,7 @@ export async function rejectStockAdjustment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menolak penyesuaian stok", code: "FORBIDDEN" } };
   }
@@ -441,7 +442,7 @@ export async function approveDiscount(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menyetujui diskon", code: "FORBIDDEN" } };
   }
@@ -490,7 +491,7 @@ export async function rejectDiscount(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa menolak diskon", code: "FORBIDDEN" } };
   }
@@ -554,27 +555,27 @@ export async function getApprovalHistory({
   type?: "service" | "drug" | "product" | "stock" | "discount" | "supplier";
   page?: number;
   pageSize?: number;
-}): Promise<{ data: any[]; total: number; page: number; pageSize: number; totalPages: number }> {
+}): Promise<{ data: unknown[]; total: number; page: number; pageSize: number; totalPages: number }> {
   const client = await prisma();
   const session = await auth();
   if (!session?.user) {
     throw new Error("UNAUTHORIZED");
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     throw new Error("FORBIDDEN");
   }
 
-  const buildWhere = (extra?: any) => {
-    const w: any = {};
+  const buildWhere = (extra?: Record<string, string | undefined>) => {
+    const w: Record<string, string | undefined> = {};
     if (status) w.status = status;
     if (extra) Object.assign(w, extra);
     return w;
   };
 
   const types = type ? [type] : ["service", "drug", "product", "stock", "discount", "supplier"];
-  const allResults: any[] = [];
+  const allResults: Array<{ requestedAt?: Date; appliedAt?: Date; createdAt?: Date; _type?: string; [key: string]: unknown }> = [];
 
   for (const t of types) {
     switch (t) {
@@ -618,8 +619,9 @@ export async function getApprovalHistory({
         break;
       }
       case "discount": {
-        const w: any = {};
-        if (status) w.approvalStatus = status;
+        const w: Prisma.DiscountLogWhereInput = {
+          ...(status && { approvalStatus: status as Prisma.EnumApprovalStatusFilter["equals"] }),
+        };
         const items = await client.discountLog.findMany({
           where: w,
           include: {
@@ -644,8 +646,8 @@ export async function getApprovalHistory({
   }
 
   allResults.sort((a, b) => {
-    const dateA = new Date(a.requestedAt || a.appliedAt || a.createdAt);
-    const dateB = new Date(b.requestedAt || b.appliedAt || b.createdAt);
+    const dateA = new Date((a.requestedAt || a.appliedAt || a.createdAt || new Date()) as Date);
+    const dateB = new Date((b.requestedAt || b.appliedAt || b.createdAt || new Date()) as Date);
     return dateB.getTime() - dateA.getTime();
   });
 

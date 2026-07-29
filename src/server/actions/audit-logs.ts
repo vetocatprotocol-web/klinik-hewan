@@ -3,6 +3,7 @@
 import { auth } from "../lib/auth";
 import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
+import { Prisma } from "@prisma/client";
 
 export async function getAuditLogsForExport({
   userId,
@@ -16,6 +17,7 @@ export async function getAuditLogsForExport({
   entityType?: string;
   dateFrom?: string;
   dateTo?: string;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 } = {}): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -23,20 +25,22 @@ export async function getAuditLogsForExport({
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mengakses log audit", code: "FORBIDDEN" } };
   }
 
-  const where: any = {};
-  if (userId) where.userId = userId;
-  if (action) where.action = action;
-  if (entityType) where.entityType = entityType;
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
-  }
+  const where: Prisma.AuditLogWhereInput = {
+    ...(userId && { userId }),
+    ...(action && { action: action as Prisma.EnumAuditActionFilter["equals"] }),
+    ...(entityType && { entityType }),
+    ...(dateFrom || dateTo ? {
+      createdAt: {
+        ...(dateFrom && { gte: new Date(dateFrom) }),
+        ...(dateTo && { lte: new Date(dateTo) }),
+      }
+    } : {}),
+  };
 
   const logs = await client.auditLog.findMany({
     where,
@@ -50,6 +54,7 @@ export async function getAuditLogsForExport({
 export async function getAuditTrailForEntity(
   entityType: string,
   entityId: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -57,7 +62,7 @@ export async function getAuditTrailForEntity(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mengakses log audit", code: "FORBIDDEN" } };
   }
@@ -75,6 +80,7 @@ export async function getUserActivity(
   userId: string,
   dateFrom?: string,
   dateTo?: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -82,7 +88,7 @@ export async function getUserActivity(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mengakses aktivitas pengguna", code: "FORBIDDEN" } };
   }
@@ -96,12 +102,15 @@ export async function getUserActivity(
     return { success: false, error: { message: "Pengguna tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  const where: any = { userId };
-  if (dateFrom || dateTo) {
-    where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
-  }
+  const where: Prisma.AuditLogWhereInput = {
+    userId,
+    ...(dateFrom || dateTo ? {
+      createdAt: {
+        ...(dateFrom && { gte: new Date(dateFrom) }),
+        ...(dateTo && { lte: new Date(dateTo) }),
+      }
+    } : {}),
+  };
 
   const [logs, actionCounts] = await Promise.all([
     client.auditLog.findMany({
@@ -130,6 +139,7 @@ export async function getUserActivity(
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getAnomalyReport(): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -137,7 +147,7 @@ export async function getAnomalyReport(): Promise<ActionResult<any>> {
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mengakses laporan anomali", code: "FORBIDDEN" } };
   }
@@ -195,6 +205,7 @@ export async function searchAuditLogs(
     dateFrom?: string;
     dateTo?: string;
   } = {}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -202,19 +213,21 @@ export async function searchAuditLogs(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (role !== "OWNER") {
     return { success: false, error: { message: "Hanya Owner yang bisa mencari log audit", code: "FORBIDDEN" } };
   }
 
-  const where: any = {};
-  if (filters.action) where.action = filters.action;
-  if (filters.entityType) where.entityType = filters.entityType;
-  if (filters.dateFrom || filters.dateTo) {
-    where.createdAt = {};
-    if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
-    if (filters.dateTo) where.createdAt.lte = new Date(filters.dateTo);
-  }
+  const where: Prisma.AuditLogWhereInput = {
+    ...(filters.action && { action: filters.action as Prisma.EnumAuditActionFilter["equals"] }),
+    ...(filters.entityType && { entityType: filters.entityType }),
+    ...(filters.dateFrom || filters.dateTo ? {
+      createdAt: {
+        ...(filters.dateFrom && { gte: new Date(filters.dateFrom) }),
+        ...(filters.dateTo && { lte: new Date(filters.dateTo) }),
+      }
+    } : {}),
+  };
 
   const logs = await client.auditLog.findMany({
     where,

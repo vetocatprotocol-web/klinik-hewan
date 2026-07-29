@@ -16,7 +16,7 @@ export async function suggestServicePriceChange(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["KASIR", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -42,7 +42,7 @@ export async function suggestServicePriceChange(
   });
 
   const owners = await client.user.findMany({
-    where: { role: "OWNER" as any },
+    where: { role: { name: "OWNER" } },
     select: { id: true },
   });
 
@@ -51,7 +51,7 @@ export async function suggestServicePriceChange(
     await createNotification({
       userId: owner.id,
       title: "Saran Perubahan Harga Layanan",
-      message: `${(session.user as any).name} mengusulkan perubahan harga ${service.name} dari Rp ${Number(service.price).toLocaleString("id-ID")} ke Rp ${newPrice.toLocaleString("id-ID")}.`,
+      message: `${(session.user as { id: string; name: string }).name} mengusulkan perubahan harga ${service.name} dari Rp ${Number(service.price).toLocaleString("id-ID")} ke Rp ${newPrice.toLocaleString("id-ID")}.`,
       type: "info",
     });
   }
@@ -82,7 +82,7 @@ export async function suggestDrugPriceChange(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["KASIR", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -108,7 +108,7 @@ export async function suggestDrugPriceChange(
   });
 
   const owners = await client.user.findMany({
-    where: { role: "OWNER" as any },
+    where: { role: { name: "OWNER" } },
     select: { id: true },
   });
 
@@ -117,7 +117,7 @@ export async function suggestDrugPriceChange(
     await createNotification({
       userId: owner.id,
       title: "Saran Perubahan Harga Obat",
-      message: `${(session.user as any).name} mengusulkan perubahan harga ${drug.name} dari Rp ${Number(drug.pricePerUnit).toLocaleString("id-ID")} ke Rp ${newPrice.toLocaleString("id-ID")}.`,
+      message: `${(session.user as { id: string; name: string }).name} mengusulkan perubahan harga ${drug.name} dari Rp ${Number(drug.pricePerUnit).toLocaleString("id-ID")} ke Rp ${newPrice.toLocaleString("id-ID")}.`,
       type: "info",
     });
   }
@@ -148,7 +148,7 @@ export async function suggestProductPriceChange(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["KASIR", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -174,7 +174,7 @@ export async function suggestProductPriceChange(
   });
 
   const owners = await client.user.findMany({
-    where: { role: "OWNER" as any },
+    where: { role: { name: "OWNER" } },
     select: { id: true },
   });
 
@@ -183,7 +183,7 @@ export async function suggestProductPriceChange(
     await createNotification({
       userId: owner.id,
       title: "Saran Perubahan Harga Produk",
-      message: `${(session.user as any).name} mengusulkan perubahan harga ${product.name} dari Rp ${Number(product.price).toLocaleString("id-ID")} ke Rp ${newPrice.toLocaleString("id-ID")}.`,
+      message: `${(session.user as { id: string; name: string }).name} mengusulkan perubahan harga ${product.name} dari Rp ${Number(product.price).toLocaleString("id-ID")} ke Rp ${newPrice.toLocaleString("id-ID")}.`,
       type: "info",
     });
   }
@@ -213,6 +213,7 @@ export async function getPriceChangeRequests({
   entityType?: string;
   page?: number;
   pageSize?: number;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 } = {}): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -220,18 +221,19 @@ export async function getPriceChangeRequests({
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  const buildWhere = (model: string) => {
-    const w: any = {};
+  const buildWhere = (_model: string) => {
+    const w: { status?: string } = {};
     if (status) w.status = status;
     return w;
   };
 
-  const models: Array<{ key: string; client: any; name: string }> = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma delegate types have complex generic signatures that cannot be easily typed
+  const models: Array<{ key: string; client: { findMany: (...args: any[]) => any; count: (...args: any[]) => any }; name: string }> = [];
   if (!entityType || entityType === "service") {
     models.push({ key: "serviceChanges", client: client.serviceChangeRequest, name: "service" });
   }
@@ -242,7 +244,7 @@ export async function getPriceChangeRequests({
     models.push({ key: "productChanges", client: client.productChangeRequest, name: "product" });
   }
 
-  const results: any = {};
+  const results: Record<string, unknown[]> = {};
   let totalCount = 0;
 
   for (const m of models) {
@@ -281,6 +283,7 @@ export async function getPriceChangeRequests({
 export async function getPriceChangeHistory(
   entityType: string,
   entityId: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -288,12 +291,12 @@ export async function getPriceChangeHistory(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  let history: any[] = [];
+  let history: Array<Record<string, unknown>> = [];
 
   if (entityType === "service") {
     const service = await client.service.findUnique({ where: { id: entityId }, select: { id: true, name: true } });
@@ -334,6 +337,7 @@ export async function getPriceChangeHistory(
 
 export async function getPriceChangeImpactAnalysis(
   changeRequestId: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<ActionResult<any>> {
   const client = await prisma();
   const session = await auth();
@@ -341,12 +345,12 @@ export async function getPriceChangeImpactAnalysis(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "KASIR"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
 
-  let request: any = null;
+  let request: { serviceId?: string; drugId?: string; productId?: string; status: string; oldPrice: unknown; newPrice: unknown; requestedBy?: string } | null = null;
   let entityType = "";
   let entityField = "";
   let itemName = "";
@@ -385,9 +389,9 @@ export async function getPriceChangeImpactAnalysis(
     return { success: false, error: { message: "Permintaan perubahan tidak ditemukan", code: "NOT_FOUND" } };
   }
 
-  const entityId = request[entityField];
+  const entityId = request[entityField as keyof typeof request] as string;
 
-  let affectedInvoices: any[] = [];
+  let affectedInvoices: Array<{ invoiceId: string }> = [];
 
   if (entityType === "service") {
     affectedInvoices = await client.invoiceItem.findMany({

@@ -8,7 +8,7 @@ import { createAuditLog } from "../lib/audit";
 import { createNotification } from "../lib/notifications";
 
 export async function createAppointment(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionResult<string>> {
   const client = await prisma();
@@ -17,7 +17,7 @@ export async function createAppointment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "KASIR", "CUSTOMER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -143,7 +143,7 @@ export async function updateAppointment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "KASIR", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -156,7 +156,7 @@ export async function updateAppointment(
     return { success: false, error: { message: "Hanya janji temu PENDING yang bisa diubah", code: "BUSINESS_RULE" } };
   }
 
-  const updateData: any = {};
+  const updateData: Record<string, unknown> = {};
 
   if (data.customerId !== undefined) updateData.customerId = data.customerId;
   if (data.petId !== undefined) updateData.petId = data.petId;
@@ -203,11 +203,11 @@ export async function updateAppointment(
   await client.appointment.update({ where: { id: appointmentId }, data: updateData });
 
   const after = await client.appointment.findUnique({ where: { id: appointmentId } });
-  const changes: Record<string, any> = {};
+  const changes: Record<string, { old: unknown; new: unknown }> = {};
   if (before && after) {
     for (const key of Object.keys(updateData)) {
-      if (JSON.stringify((before as any)[key]) !== JSON.stringify((after as any)[key])) {
-        changes[key] = { old: (before as any)[key], new: (after as any)[key] };
+      if (JSON.stringify(before[key as keyof typeof before]) !== JSON.stringify(after[key as keyof typeof after])) {
+        changes[key] = { old: before[key as keyof typeof before], new: after[key as keyof typeof after] };
       }
     }
   }
@@ -281,7 +281,7 @@ export async function completeAppointment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa menyelesaikan janji temu", code: "FORBIDDEN" } };
   }
@@ -331,7 +331,7 @@ export async function confirmAppointment(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "KASIR", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -382,7 +382,7 @@ export async function markNoShow(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Hanya Dokter atau Owner yang bisa menandai tidak hadir", code: "FORBIDDEN" } };
   }
@@ -472,6 +472,7 @@ export async function getAvailableSlots(
   return { success: true, data: slots };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getDoctorSchedule(doctorId: string): Promise<ActionResult<any[]>> {
   const client = await prisma();
 

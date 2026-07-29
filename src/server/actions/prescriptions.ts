@@ -5,18 +5,20 @@ import { prisma } from "../lib/prisma";
 import { ActionResult } from "@/types";
 import { createAuditLog } from "../lib/audit";
 import { generatePrescriptionNumber } from "@/lib/utils";
+import { Prisma } from "@prisma/client";
 
 export async function getPrescriptions({ page = 1, search = "" }: { page?: number; search?: string }) {
   const client = await prisma();
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHORIZED");
 
-  const where: any = {};
-  if (search) {
-    where.OR = [
-      { prescriptionNumber: { contains: search, mode: "insensitive" } },
-    ];
-  }
+  const where: Prisma.PrescriptionWhereInput = {
+    ...(search ? {
+      OR: [
+        { prescriptionNumber: { contains: search, mode: "insensitive" as const } },
+      ],
+    } : {}),
+  };
 
   const PAGE_SIZE = 20;
   const [data, total] = await Promise.all([
@@ -63,7 +65,7 @@ export async function updatePrescriptionStatus(
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const role = (session.user as any).role;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["OWNER", "DOKTER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -96,8 +98,8 @@ export async function generatePrescription(visitId: string): Promise<ActionResul
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const userId = (session.user as any).id as string;
-  const role = (session.user as any).role;
+  const userId = (session.user as { id: string }).id;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -165,8 +167,8 @@ export async function completePrescription(prescriptionId: string): Promise<Acti
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const userId = (session.user as any).id as string;
-  const role = (session.user as any).role;
+  const userId = (session.user as { id: string }).id;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
@@ -207,8 +209,8 @@ export async function cancelPrescription(prescriptionId: string, reason: string)
     return { success: false, error: { message: "Silakan login terlebih dahulu", code: "UNAUTHORIZED" } };
   }
 
-  const userId = (session.user as any).id as string;
-  const role = (session.user as any).role;
+  const userId = (session.user as { id: string }).id;
+  const role = (session.user as { id: string; role: string }).role;
   if (!["DOKTER", "OWNER"].includes(role)) {
     return { success: false, error: { message: "Akses ditolak", code: "FORBIDDEN" } };
   }
